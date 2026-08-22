@@ -62,6 +62,11 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* The hidden attribute only sets display: none at the weakest possible
+   specificity, so any component rule with its own display silently un-hides the
+   element. Everything here that toggles a panel uses [hidden], so it wins. */
+[hidden] { display: none !important; }
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -155,7 +160,9 @@ html.motion-reduced { animation: none; --spectrum-hue: 320deg; }
   border-radius: 2px;
 }
 
-.topbar__nav { display: flex; gap: 3px; flex-wrap: wrap; }
+/* The nav takes the slack, so whoever you are signed in as and the theme switch
+   sit together on the right instead of trailing the links. */
+.topbar__nav { display: flex; gap: 3px; flex-wrap: wrap; margin-right: auto; }
 
 .topbar__nav a,
 .topbar__btn {
@@ -176,8 +183,6 @@ html.motion-reduced { animation: none; --spectrum-hue: 320deg; }
 
 .topbar__nav a:hover,
 .topbar__btn:hover { background: var(--teal); color: var(--bg); }
-
-.topbar__btn { margin-left: auto; }
 
 .key { letter-spacing: -0.08em; }
 
@@ -746,6 +751,10 @@ button, input, select { font-weight: 300; }
 
 .gate { padding: 2.5rem 1.5rem 3rem; border-bottom: 1px solid var(--line); }
 
+/* The sign-in card is the whole page when it shows, so it gets room around it
+   rather than sitting jammed under the bar. */
+.gate--auth { padding: clamp(3rem, 9vh, 6rem) 1.5rem clamp(4rem, 12vh, 8rem); border-bottom: none; }
+
 .gate__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
@@ -754,15 +763,43 @@ button, input, select { font-weight: 300; }
   border: 1px solid var(--line);
 }
 
-.gate__grid--one { grid-template-columns: minmax(0, 30rem); justify-content: center; }
+/* A single card has no neighbours to be divided from, so it drops the grid's
+   1px-gap-over-a-background trick — otherwise that background paints the full
+   width of the page as a slab with the card marooned in the middle. */
+.gate__grid--one {
+  grid-template-columns: minmax(0, 30rem);
+  justify-content: center;
+  background: none;
+  border: none;
+  gap: 0;
+}
+
+.gate__grid--one .gate__card {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 1.9rem 1.75rem 2rem;
+}
 
 .gate__card {
   background: var(--bg);
   padding: 1.5rem 1.4rem 1.6rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.15rem;
 }
+
+/* A form is one block child of the card, so the card's gap cannot space its
+   fields: they need their own rhythm or the labels sit on the line above. */
+.gate__card form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.gate__card .field label { margin-bottom: 0.1rem; }
+.gate__card .seg { gap: 4px; }
+.gate__card .seg button { padding: 7px 12px; }
+.gate__card .btn--pill { margin-top: 0.35rem; }
 
 .gate__title {
   font-size: clamp(1.6rem, 3vw, 2.2rem);
@@ -957,6 +994,10 @@ button, input, select { font-weight: 300; }
 }
 
 /* ============ ACCOUNT CHIP ============ */
+/* Signed in or not, this sits hard right next to the theme switch: the one
+   place on every page that answers "who am I here". */
+#navAccount { display: flex; align-items: center; }
+
 .topbar__acct {
   font-family: var(--mono);
   font-size: 12px;
@@ -967,7 +1008,6 @@ button, input, select { font-weight: 300; }
   background: var(--panel);
   border-radius: 2px;
   padding: 5px 8px;
-  margin-left: auto;
   max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -979,9 +1019,7 @@ button, input, select { font-weight: 300; }
 .topbar__acct--out { color: var(--teal); }
 .topbar__acct--out:hover { background: var(--teal); }
 
-/* When an account chip is present it owns the auto margin, not the theme
-   button, or both would push and the bar would split in two. */
-#navAccount:not(:empty) + .topbar__btn { margin-left: 3px; }
+
 
 /* ============ LANDING ============ */
 .gate__grid--three { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
