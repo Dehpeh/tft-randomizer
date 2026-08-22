@@ -29,9 +29,12 @@ for development and for running a tournament off one machine.
 
 1. Import the repo on Vercel. No build command, no framework preset — it is a
    static site with functions.
-2. In the project, **Storage → Marketplace → Upstash for Redis** → create a free
-   database and connect it. That sets `UPSTASH_REDIS_REST_URL` and
-   `UPSTASH_REDIS_REST_TOKEN` for you.
+2. In the project, **Storage → Create Database**, pick **Upstash for Redis** from
+   the provider list (searching `upstash` finds it), and connect it to the
+   project. That sets the REST url and token for you. Depending on which screen
+   you came in through they arrive as either `UPSTASH_REDIS_REST_URL` /
+   `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` / `KV_REST_API_TOKEN`;
+   `api/_store.js` accepts either pair.
 3. Add one more environment variable, `SESSION_SECRET` — 24+ random characters.
    It signs the login cookies; changing it later signs everyone out.
 
@@ -41,9 +44,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Deploy. Session links look like `https://your-domain/s/PLM73D`.
 
-Without the Upstash variables a deployment would fall back to a per-instance
-file that serverless functions do not share, so `SESSION_SECRET` throws on
-Vercel if it is missing and the store falls back only outside it.
+Both are checked rather than assumed: on Vercel, a missing `SESSION_SECRET` and
+a missing Redis each throw with a message saying which one, instead of falling
+back to a per-instance file that serverless functions do not share and letting
+sessions appear to vanish at random.
 
 ## How a tournament night runs
 

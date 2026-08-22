@@ -18,8 +18,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const URL_ = process.env.UPSTASH_REDIS_REST_URL;
-const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+/* Connecting Upstash through Vercel hands you one of two names for the same
+   pair, depending on which button you came in through. Accept both rather than
+   making the deployment depend on which screen was used. */
+const URL_ = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || process.env.REDIS_REST_URL;
+const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || process.env.REDIS_REST_TOKEN;
 const remote = Boolean(URL_ && TOKEN);
 
 const TTL_SECONDS = 60 * 60 * 24 * 45; // sessions expire 45 days after the last write
@@ -59,7 +62,16 @@ return 1
 const FILE = process.env.TFT_STORE_FILE || path.join(os.homedir(), '.tft-randomizer-store.json');
 let cache = null;
 
+/* Serverless instances do not share a filesystem, so the fallback on a
+   deployment would look like sessions randomly vanishing. Fail loudly instead. */
+function assertUsable() {
+  if (!remote && process.env.VERCEL) {
+    throw new Error('No Redis configured. Connect Upstash for Redis in Vercel → Storage, or set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.');
+  }
+}
+
 function readFile() {
+  assertUsable();
   if (cache) return cache;
   try { cache = JSON.parse(fs.readFileSync(FILE, 'utf8')); }
   catch (e) { cache = {}; }
