@@ -3,7 +3,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/s/:code", "destination": "/session.html" }
+    { "source": "/s/:code", "destination": "/session" }
   ],
   "headers": [
     {
