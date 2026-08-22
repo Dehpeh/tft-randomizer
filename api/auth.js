@@ -6,7 +6,7 @@
    POST /api/auth {op:"logout"}
    POST /api/auth {op:"setRank",  rank}      // your own peak rank
 
-   One account per League name, first come first served. Names are matched
+   One account per name, first come first served. Names are matched
    case-insensitively but keep the form you typed for display. */
 
 const lib = require('./_lib.js');

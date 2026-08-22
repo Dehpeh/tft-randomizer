@@ -1,4 +1,4 @@
-/* Accounts: a League name plus a 6-digit passcode.
+/* Accounts: a name plus a 6-digit passcode.
 
    Be clear-eyed about what that is. Six digits is a million combinations, which
    is fine for keeping a friend out of your match history and useless against
@@ -22,8 +22,9 @@ const LOCKOUT_SECONDS = 15 * 60;
 
 /* ---------- names ---------- */
 
-// League names are case-insensitive for identity but keep their typed form for
-// display. Riot IDs (Name#TAG) are allowed through as-is.
+// Names are case-insensitive for identity but keep their typed form for
+// display. Whatever someone types is what they are: a Riot ID with a #TAG, a
+// Discord handle, or just a first name.
 function normalizeName(name) {
   return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }

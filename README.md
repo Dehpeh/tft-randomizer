@@ -59,7 +59,7 @@ in `assets/`, the shared engine in `lib/`, and `server.mjs` is in `.vercelignore
 
 ## Accounts
 
-One account per League name, first come first served, with a 6-digit passcode.
+One account per name, first come first served, with a 6-digit passcode.
 The account carries your display name, your peak rank, and every lobby you have
 played. Registering claims the name; after that the same name needs the same
 passcode.
@@ -84,8 +84,9 @@ someone learning which trait you are banned from playing.
 
 ## How a tournament night runs
 
-1. Everyone registers at `/me` (or on the way into a lobby) with their League
-   name, a 6-digit passcode, and their **peak rank**.
+1. Everyone registers at `/me` (or on the way into a lobby) with a name, a
+   6-digit passcode, and their **peak rank**. Whatever they type is what the
+   lobby sees them as — Riot ID, Discord handle, first name.
 2. Gamemaster opens a lobby at `/session` and shares the `/s/CODE` link.
 3. Players click it and take a seat. The gamemaster can correct any rank from
    the roster.

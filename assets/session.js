@@ -114,7 +114,7 @@
     $('authTabs').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
     $('aRankField').hidden = mode !== 'register';
     $('authSubmit').textContent = mode === 'register' ? 'Create my account' : 'Sign in';
-    $('authTitle').textContent = mode === 'register' ? 'Claim your name' : 'Your League name and passcode';
+    $('authTitle').textContent = mode === 'register' ? 'Claim your name' : 'Your name and passcode';
     $('authHint').textContent = mode === 'register'
       ? 'Your name is yours for the tournament. Pick a passcode you will remember: there is no email on file, so only an admin can reset it.'
       : 'Same name and passcode you registered with.';
