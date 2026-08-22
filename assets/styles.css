@@ -1246,3 +1246,37 @@ button, input, select { font-weight: 300; }
   letter-spacing: -0.012em;
   color: var(--dim);
 }
+
+/* ============ MEASURE ============
+   The section rules are meant to run the full width of the window — that
+   edge-to-edge line is the whole look. The content inside them is not: past
+   about 1400px the hero headline strands itself in a third of the screen and
+   card text runs to a hundred characters a line.
+
+   So the sections stay full-bleed and their padding does the centring: a normal
+   gutter on a laptop, and on anything wider the leftover half on each side. One
+   rule, no wrapper divs, borders still touch both edges. */
+:root { --gutter: 1.5rem; --measure: 1400px; }
+
+.hero, .gate, .ranks, .pool, .log, .footer, .lobby, .mine, .gmpanel,
+.roster, .standings, .stats, .roll__head, .roll__body {
+  padding-left: max(var(--gutter), calc((100% - var(--measure)) / 2));
+  padding-right: max(var(--gutter), calc((100% - var(--measure)) / 2));
+}
+
+/* The stamps hang off the hero's top right, which is now an inset edge rather
+   than the window's. */
+@media (min-width: 1500px) {
+  .hero__stamps { right: max(2rem, calc((100% - var(--measure)) / 2)); }
+}
+
+/* Cards in a row are equal height, so their buttons should share a baseline
+   instead of each following however long its own paragraph ran. */
+.gate__grid--three .gate__card .btn--pill,
+.gate__grid .gate__card .btn--pill { margin-top: auto; }
+
+.gate__grid--three .gate__card { padding: 1.6rem 1.5rem 1.7rem; }
+
+/* ...but the sign-in card is alone in its grid: there is nothing to line up
+   with, and pinning its button to the bottom would strand it under the hint. */
+.gate__grid--one .gate__card .btn--pill { margin-top: 0.35rem; }
