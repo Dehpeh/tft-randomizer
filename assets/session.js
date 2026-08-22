@@ -44,14 +44,9 @@
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   }
 
-  let toastTimer;
-  function toast(msg) {
-    const el = $('toast');
-    el.textContent = msg;
-    el.classList.add('is-up');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('is-up'), 2400);
-  }
+  const toast = (msg) => window.TFTUI.toast(msg);
+  const ask = (opts) => window.TFTUI.confirm(opts);
+  const valid = (form) => window.TFTUI.validate(form);
 
   async function api(path, body) {
     const res = await fetch('/api/' + path, body
@@ -126,6 +121,7 @@
     e.preventDefault();
     const err = $('authError');
     err.hidden = true;
+    if (!valid(e.target)) return;
     const payload = { op: view.authMode, name: $('aName').value, passcode: $('aPass').value };
     if (view.authMode === 'register') payload.rank = $('aRank').value;
     try {
@@ -149,8 +145,8 @@
       const list = mine.lobbies || [];
       $('myLobbies').hidden = !list.length;
       $('lobbyList').innerHTML = list.map((l) => `
-        <a class="lobbyrow" href="/s/${esc(l.code)}">
-          <span class="lobbyrow__name">${esc(l.name)}</span>
+        <a class="lobbyrow${l.open ? '' : ' lobbyrow--closed'}" href="/s/${esc(l.code)}">
+          <span class="lobbyrow__name">${esc(l.name)} <span class="tag ${l.open ? 'tag--live' : 'tag--closed'}">${l.open ? 'open' : 'closed'}</span></span>
           <span class="lobbyrow__meta">${esc(l.code)} · ${l.players} player${l.players === 1 ? '' : 's'}${l.isGm ? ' · you run it' : ''}</span>
           <span class="lobbyrow__go">&rarr;</span>
         </a>`).join('');
@@ -161,6 +157,7 @@
     e.preventDefault();
     const err = $('createError');
     err.hidden = true;
+    if (!valid(e.target)) return;
     try {
       const out = await api('create', { sessionName: $('cSession').value });
       history.replaceState(null, '', '/s/' + out.code);
@@ -175,11 +172,10 @@
 
   $('joinForm').addEventListener('submit', (e) => {
     e.preventDefault();
+    if (!valid(e.target)) return;
     const code = $('jCode').value.trim().toUpperCase();
     if (!CODE_RE.test(code)) {
-      const err = $('joinError');
-      err.textContent = 'Lobby codes are 6 characters, no vowels.';
-      err.hidden = false;
+      window.TFTUI.fieldError($('jCode'), 'Six characters, no vowels. Check the code your gamemaster sent.');
       return;
     }
     location.href = '/s/' + code;
@@ -254,7 +250,23 @@
     $('boardCode').textContent = s.code;
     $('gmPanel').hidden = !s.isGm;
     $('rosterCount').textContent = `(${s.players.length})`;
-    $('boardStatus').textContent = s.open ? 'LIVE · LOBBY OPEN' : 'LIVE · LOBBY CLOSED';
+    $('boardStatus').textContent = s.open ? 'LOBBY OPEN' : 'LOBBY CLOSED';
+
+    /* A closed lobby is a record, not a live board: it dims, says so at the top,
+       and every control that would change it is refused by the server anyway. */
+    $('board').classList.toggle('board--closed', !s.open);
+    $('closedBanner').hidden = s.open;
+    if (!s.open) {
+      $('closedNote').textContent = s.isGm
+        ? 'No more rolls, placements or players. Reopen it to make changes, or delete it for good.'
+        : 'No more rolls or placements. What is below is final.';
+      $('closedActions').innerHTML = s.isGm
+        ? '<button class="btn" type="button" data-closed="reopen">Reopen</button>'
+          + '<button class="btn btn--danger" type="button" data-closed="delete">Delete</button>'
+        : '';
+    }
+    document.querySelectorAll('.gmpanel__row .btn, #resultsPanel button, #penaltyPanel button')
+      .forEach((b) => { if (b.id !== 'toggleOpen' && b.id !== 'deleteLobby') b.disabled = !s.open; });
 
     renderGames();
     renderMine();
@@ -282,6 +294,17 @@
       ? `<button type="button" class="gametab gametab--add" data-game="${Math.max(...list) + 1}">+ Game ${Math.max(...list) + 1}</button>`
       : '');
   }
+
+  $('closedBanner').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-closed]');
+    if (!btn) return;
+    if (btn.dataset.closed === 'reopen') {
+      try { await act('gm', { op: 'setOpen', open: true }); toast('Lobby reopened'); }
+      catch (err) { toast(err.message); }
+    } else {
+      deleteLobby();
+    }
+  });
 
   $('gameTabs').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-game]');
@@ -337,10 +360,18 @@
 
   function land(slot, pick) {
     slot.classList.remove('is-spinning');
-    slot.querySelector('.slot__text').textContent = pick.text;
+    slot.querySelector('.slot__text').innerHTML = esc(pick.text) + detailChip(pick);
     slot.querySelector('.slot__meta').textContent = pick.rerolls
-      ? `family: ${pick.family} · ${pick.rerolls} auto-reroll${pick.rerolls > 1 ? 's' : ''} for a clash`
-      : `family: ${pick.family}`;
+      ? `${pick.rerolls} auto-reroll${pick.rerolls > 1 ? 's' : ''} for a clash`
+      : '';
+  }
+
+  /* Some restrictions leave a blank the player would otherwise fill in for
+     themselves — which shop slot, which stage. The randomizer fills it, so it
+     is shown as something that was rolled rather than folded into the text. */
+  function detailChip(pick) {
+    if (!pick.detail) return '';
+    return `<span class="detail" title="Rolled by the randomizer">${esc(pick.detail.label)}: <b>${esc(pick.detail.value)}</b></span>`;
   }
 
   /* Your own roll flickers in when it is new to you, so a restriction landing
@@ -353,6 +384,7 @@
       const text = slot.querySelector('.slot__text');
       slot.classList.add('is-spinning');
       slot.querySelector('.slot__meta').textContent = '';
+      text.textContent = '';
       timers.push(setInterval(() => {
         text.textContent = options[Math.floor(Math.random() * options.length)].text;
       }, 55));
@@ -386,15 +418,25 @@
         ${roll && roll.picks.length ? `<ul class="pcard__list">${roll.picks.map((pick, i) => `
           <li class="pcard__pick pcard__pick--${pick.tier}">
             <b>${pick.tier}</b>
-            <span>${esc(pick.text)}</span>
+            <span>${esc(pick.text)}${detailChip(pick)}</span>
             ${s.isGm ? `<button class="slot__reroll" type="button" data-op="rerollSlot" data-player="${esc(p.id)}" data-index="${i}">Reroll</button>` : ''}
           </li>`).join('')}</ul>
           <div class="pcard__seed">SEED ${esc(roll.seed)}</div>`
         : roll ? '<div class="pcard__waiting pcard__waiting--clean">Plays clean — no restrictions</div>'
         : '<div class="pcard__waiting">No restrictions yet</div>'}
+        ${penaltiesFor(p.id)}
         ${s.isGm ? gmRow(p) : ''}
       </article>`;
     }).join('');
+  }
+
+  /* Everyone can see what has been called against everyone else: an umpire
+     decision that only the person penalised knows about is a rumour. */
+  function penaltiesFor(playerId) {
+    const list = (view.session.penalties || []).filter((p) => p.playerId === playerId);
+    if (!list.length) return '';
+    return `<div class="penalty__list">${list.map((p) => `
+      <div class="penalty"><span>G${p.game} — ${esc(p.reason)}</span></div>`).join('')}</div>`;
   }
 
   function gmRow(p) {
@@ -479,11 +521,11 @@
         await act('gm', { op, playerId, game: view.game, index: Number(btn.dataset.index) });
         toast('Slot rerolled');
       } else if (op === 'removePlayer') {
-        if (!confirm(`Remove ${who} from the lobby? Their rolls and placements go with them.`)) return;
+        if (!await ask({ title: `Remove ${who}?`, body: 'Their rolls, placements and penalties in this lobby go with them. Their account is untouched.', confirmText: 'Remove', danger: true })) return;
         await act('gm', { op, playerId });
         toast(who + ' removed');
       } else if (op === 'transferGm') {
-        if (!confirm(`Hand the lobby to ${who}? You stop being gamemaster.`)) return;
+        if (!await ask({ title: `Hand the lobby to ${who}?`, body: 'They get the gamemaster controls and you lose them.', confirmText: 'Hand it over' })) return;
         await act('gm', { op, playerId });
         toast(who + ' is the gamemaster');
       }
@@ -505,13 +547,13 @@
   });
 
   $('rollAll').addEventListener('click', async () => {
-    if (!confirm(`Re-roll every player for game ${view.game}? Existing restrictions are replaced.`)) return;
+    if (!await ask({ title: 'Re-roll the whole lobby?', body: `Everyone in game ${view.game} gets a new set of restrictions. What they are carrying now is replaced.`, confirmText: 'Re-roll everyone' })) return;
     try { await act('roll', { game: view.game, target: 'all' }); toast('Whole lobby rerolled'); }
     catch (err) { toast(err.message); }
   });
 
   $('clearGame').addEventListener('click', async () => {
-    if (!confirm(`Clear every roll and placement for game ${view.game}?`)) return;
+    if (!await ask({ title: `Clear game ${view.game}?`, body: 'Every roll and placement for this game is removed. The other games are untouched.', confirmText: 'Clear the game', danger: true })) return;
     try {
       await act('gm', { op: 'clearGame', game: view.game });
       view.lastSeed = null;
@@ -525,6 +567,24 @@
       toast(view.session.open ? 'Lobby open' : 'Lobby closed');
     } catch (err) { toast(err.message); }
   });
+
+  async function deleteLobby() {
+    const s = view.session;
+    const ok = await ask({
+      title: 'Delete this lobby?',
+      body: `${s.name} (${s.code}) and everything in it — rolls, placements and penalties for ${s.players.length} player${s.players.length === 1 ? '' : 's'} — is gone for good. Player accounts and their other lobbies are untouched.`,
+      confirmText: 'Delete for good',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api('gm', { code: view.code, op: 'deleteLobby' });
+      toast('Lobby deleted');
+      location.href = '/session';
+    } catch (err) { toast(err.message); }
+  }
+
+  $('deleteLobby').addEventListener('click', deleteLobby);
 
   $('togglePool').addEventListener('click', () => {
     view.poolOpen = !view.poolOpen;
@@ -568,7 +628,49 @@
     $('majorCount').textContent = `(${T.MAJOR.filter((r) => !off.has(r.id)).length}/${T.MAJOR.length})`;
     $('minorCount').textContent = `(${T.MINOR.filter((r) => !off.has(r.id)).length}/${T.MINOR.length})`;
     $('poolPanel').hidden = !view.poolOpen;
+    renderPenalties();
   }
+
+  function renderPenalties() {
+    const s = view.session;
+    const sel = $('penaltyPlayer');
+    const keep = sel.value;
+    sel.innerHTML = s.players.map((p) => `<option value="${esc(p.id)}">${esc(p.display)}</option>`).join('');
+    if (keep) sel.value = keep;
+
+    const list = s.penalties || [];
+    $('penaltyList').innerHTML = list.length
+      ? list.map((p) => {
+        const who = (s.players.find((x) => x.id === p.playerId) || {}).display || p.playerId;
+        return `<div class="penalty">
+          <span>G${p.game} · ${esc(who)} — ${esc(p.reason)}</span>
+          <button class="slot__reroll" type="button" data-penalty="${esc(p.id)}">Remove</button>
+        </div>`;
+      }).join('')
+      : '<div class="log__empty">Nothing recorded.</div>';
+  }
+
+  $('penaltyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!valid(e.target)) return;
+    try {
+      await act('gm', {
+        op: 'addPenalty',
+        playerId: $('penaltyPlayer').value,
+        game: view.game,
+        reason: $('penaltyReason').value,
+      });
+      $('penaltyReason').value = '';
+      toast('Penalty recorded');
+    } catch (err) { toast(err.message); }
+  });
+
+  $('penaltyList').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-penalty]');
+    if (!btn) return;
+    try { await act('gm', { op: 'removePenalty', penaltyId: btn.dataset.penalty }); toast('Penalty removed'); }
+    catch (err) { toast(err.message); }
+  });
 
   /* Held locally until submitted, so a poll landing mid-entry cannot wipe a
      half-filled scoreboard. */
@@ -604,7 +706,7 @@
   });
 
   $('clearPlacements').addEventListener('click', async () => {
-    if (!confirm(`Clear the placements for game ${view.game}?`)) return;
+    if (!await ask({ title: `Clear the placements for game ${view.game}?`, body: 'The rolls stay; only the finishing order is removed.', confirmText: 'Clear placements', danger: true })) return;
     try {
       view.dirtyPlacements = null;
       await act('gm', { op: 'clearPlacements', game: view.game });
@@ -655,7 +757,7 @@
       if (!roll) lines.push('  — not rolled yet');
       else if (!roll.picks.length) lines.push('  — no restrictions');
       else {
-        roll.picks.forEach((pick) => lines.push(`  [${pick.tier.toUpperCase()}] ${pick.text}`));
+        roll.picks.forEach((pick) => lines.push(`  [${pick.tier.toUpperCase()}] ${T.pickText(pick)}`));
         lines.push(`  seed ${roll.seed}`);
       }
       lines.push('');

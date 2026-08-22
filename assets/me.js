@@ -17,13 +17,13 @@
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   }
 
-  let toastTimer;
-  function toast(msg) {
-    const el = $('toast');
-    el.textContent = msg;
-    el.classList.add('is-up');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('is-up'), 2400);
+  const toast = (msg) => window.TFTUI.toast(msg);
+
+  /* Which shop slot, which stage: rolled by the randomizer, so it is shown as a
+     result rather than folded into the restriction text. */
+  function detailChip(pick) {
+    if (!pick.detail) return '';
+    return `<span class="detail">${esc(pick.detail.label)}: <b>${esc(pick.detail.value)}</b></span>`;
   }
 
   async function api(path, body) {
@@ -80,6 +80,7 @@
     e.preventDefault();
     const err = $('authError');
     err.hidden = true;
+    if (!window.TFTUI.validate(e.target)) return;
     const payload = { op: state.authMode, name: $('aName').value, passcode: $('aPass').value };
     if (state.authMode === 'register') payload.rank = $('aRank').value;
     try {
@@ -94,6 +95,7 @@
   });
 
   $('signOut').addEventListener('click', async () => {
+    if (!await window.TFTUI.confirm({ title: 'Sign out?', body: 'Your record stays where it is. You will need your name and passcode to get back in.', confirmText: 'Sign out' })) return;
     try { await api('auth', { op: 'logout' }); } catch (e) { /* cookie is gone either way */ }
     location.reload();
   });
@@ -139,11 +141,12 @@
 
     renderRestrictions(s.restrictions);
     renderMatches(data.matches);
+    renderPenalties(data.penalties || []);
 
     $('lobbyList').innerHTML = (data.lobbies || []).length
       ? data.lobbies.map((l) => `
-        <a class="lobbyrow" href="/s/${esc(l.code)}">
-          <span class="lobbyrow__name">${esc(l.name)}</span>
+        <a class="lobbyrow${l.open ? '' : ' lobbyrow--closed'}" href="/s/${esc(l.code)}">
+          <span class="lobbyrow__name">${esc(l.name)} <span class="tag ${l.open ? 'tag--live' : 'tag--closed'}">${l.open ? 'open' : 'closed'}</span></span>
           <span class="lobbyrow__meta">${esc(l.code)} · ${l.players} player${l.players === 1 ? '' : 's'}${l.isGm ? ' · you run it' : ''}</span>
           <span class="lobbyrow__go">&rarr;</span>
         </a>`).join('')
@@ -170,6 +173,15 @@
         </div>`).join('')}`;
   }
 
+  /* Shown to the player themselves, not just to the gamemaster who called it:
+     a penalty you cannot see is one you cannot argue with. */
+  function renderPenalties(list) {
+    $('penaltySection').hidden = !list.length;
+    if (!list.length) return;
+    $('myPenalties').innerHTML = list.map((p) => `
+      <div class="penalty"><span>${esc(p.lobby)} · G${p.game} — ${esc(p.reason)}</span></div>`).join('');
+  }
+
   function renderMatches(matches) {
     $('matchCount').textContent = `(${matches.length})`;
     if (!matches.length) {
@@ -186,7 +198,7 @@
           <span class="match__meta">${esc(rankName(m.rank))} · seed ${esc(m.seed)}</span>
         </header>
         ${m.picks.length ? `<ul class="pcard__list">
-          ${m.picks.map((p) => `<li class="pcard__pick pcard__pick--${p.tier}"><b>${esc(p.tier)}</b><span>${esc(p.text)}</span></li>`).join('')}
+          ${m.picks.map((p) => `<li class="pcard__pick pcard__pick--${p.tier}"><b>${esc(p.tier)}</b><span>${esc(p.text)}${detailChip(p)}</span></li>`).join('')}
         </ul>` : '<div class="pcard__waiting pcard__waiting--clean">Played clean — no restrictions</div>'}
       </article>`).join('');
   }

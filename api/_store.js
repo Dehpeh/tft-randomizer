@@ -169,8 +169,24 @@ async function bumpReset(key) {
   await del(key);
 }
 
-/* Delete every key under a prefix. Only the admin wipe calls this; SCAN rather
-   than KEYS so a big database cannot block Redis while it runs. */
+/* Every key under a prefix. SCAN rather than KEYS so a big database cannot
+   block Redis while it runs. Only the organiser dashboard and the wipe walk the
+   whole keyspace; everything else addresses a document directly. */
+async function keys(prefix) {
+  if (remote) {
+    const found = [];
+    let cursor = '0';
+    do {
+      const [next, batch] = await command(['SCAN', cursor, 'MATCH', prefix + '*', 'COUNT', '200']);
+      cursor = String(next);
+      if (batch && batch.length) found.push(...batch);
+    } while (cursor !== '0');
+    return found;
+  }
+  return Object.keys(readFile()).filter((k) => k.startsWith(prefix));
+}
+
+/* Delete every key under a prefix. Only the admin wipe calls this. */
 async function wipe(prefix) {
   let deleted = 0;
   if (remote) {
@@ -193,4 +209,4 @@ async function wipe(prefix) {
   return deleted;
 }
 
-module.exports = { get, setIfAbsent, del, update, bump, bumpReset, wipe, isRemote: () => remote };
+module.exports = { get, setIfAbsent, del, update, bump, bumpReset, keys, wipe, isRemote: () => remote };

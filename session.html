@@ -24,7 +24,7 @@
     <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
   </nav>
   <span id="navAccount"></span>
-  <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
 </header>
 
 <main id="top">
@@ -35,14 +35,14 @@
       <div class="gate__card">
         <div class="section-label">/ SIGN IN</div>
         <h1 class="gate__title" id="authTitle">Your name and passcode</h1>
-        <p class="gate__blurb" id="authBlurb">One account for the whole tournament: it carries your rank, your restrictions and your results.</p>
+        <p class="gate__blurb" id="authBlurb">One account for the whole tournament. It remembers your rank, everything you have been dealt, and how you finished.</p>
 
         <div class="seg" id="authTabs" role="group" aria-label="Sign in or register">
           <button type="button" data-mode="login" aria-pressed="true">Sign in</button>
           <button type="button" data-mode="register" aria-pressed="false">First time</button>
         </div>
 
-        <form id="authForm" autocomplete="off">
+        <form id="authForm" autocomplete="off" novalidate>
           <div class="field">
             <label for="aName">/ Name</label>
             <input id="aName" type="text" placeholder="your name" maxlength="32" required>
@@ -57,7 +57,7 @@
           </div>
           <button class="btn btn--pill btn--accent" type="submit" id="authSubmit">Sign in</button>
         </form>
-        <p class="hint" id="authHint">Pick something you will remember. There is no email on file, so only an admin can reset it.</p>
+        <p class="hint" id="authHint">Pick a code you will remember &mdash; there is no email attached to it, so only an organiser can reset it for you.</p>
         <p class="notice" id="authError" hidden></p>
       </div>
     </div>
@@ -68,14 +68,14 @@
     <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
     <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
     <h1 class="hero__title">Tournament <em>lobbies</em></h1>
-    <p class="hero__sub">Open one as gamemaster, or drop in the code your gamemaster sent you.</p>
+    <p class="hero__sub">Running a group? Open a lobby. Playing in one? Enter the code your gamemaster gave you.</p>
   </section>
 
   <section class="gate" id="gateForms" hidden>
     <div class="gate__grid">
-      <form class="gate__card" id="createForm" autocomplete="off">
+      <form class="gate__card" id="createForm" autocomplete="off" novalidate>
         <div class="section-label">/ OPEN A LOBBY</div>
-        <p class="gate__blurb">You become the gamemaster: you set ranks, roll for everyone, and submit the placements at the end.</p>
+        <p class="gate__blurb">You run it: you check ranks, roll for the table, and record where everyone finished when the game ends.</p>
         <div class="field">
           <label for="cSession">/ Lobby name</label>
           <input id="cSession" type="text" placeholder="Group A" maxlength="60" required>
@@ -84,9 +84,9 @@
         <p class="notice" id="createError" hidden></p>
       </form>
 
-      <form class="gate__card" id="joinForm" autocomplete="off">
+      <form class="gate__card" id="joinForm" autocomplete="off" novalidate>
         <div class="section-label">/ JOIN A LOBBY</div>
-        <p class="gate__blurb">The link your gamemaster sent skips this step. The code works just as well.</p>
+        <p class="gate__blurb">Six characters, no vowels. The link your gamemaster sent takes you straight there.</p>
         <div class="field">
           <label for="jCode">/ Lobby code</label>
           <input id="jCode" type="text" placeholder="XXXXXX" maxlength="7" required>
@@ -109,7 +109,7 @@
         <div class="section-label">/ JOIN THIS LOBBY</div>
         <h1 class="gate__title" id="joinName">Lobby</h1>
         <p class="gate__blurb" id="joinMeta"></p>
-        <p class="gate__blurb">You will be seated as <b id="joinAs"></b> at your account's peak rank. The gamemaster can correct the rank if it is wrong.</p>
+        <p class="gate__blurb">You will take your seat as <b id="joinAs"></b>. If that rank is wrong, your gamemaster can fix it before the first roll.</p>
         <button class="btn btn--pill btn--accent" id="joinNow">Take a seat</button>
         <p class="notice" id="joinGateError" hidden></p>
       </div>
@@ -131,6 +131,11 @@
         </div>
       </div>
       <div class="lobby__games" id="gameTabs" role="group" aria-label="Game"></div>
+      <div class="closed-banner" id="closedBanner" hidden>
+        <b>Lobby closed</b>
+        <span id="closedNote">No more rolls, placements or players. The results below are final.</span>
+        <span class="closed-banner__actions" id="closedActions"></span>
+      </div>
     </section>
 
     <section class="mine" id="mine"></section>
@@ -143,12 +148,13 @@
         <button class="btn" id="clearGame">Clear this game</button>
         <button class="btn" id="toggleOpen">Close the lobby</button>
         <button class="btn" id="togglePool">Restriction pool</button>
+        <button class="btn btn--danger" id="deleteLobby">Delete lobby</button>
       </div>
       <p class="hint" id="gmHint"></p>
 
       <div class="results" id="resultsPanel">
         <div class="section-label">/ PLACEMENTS &mdash; GAME <span id="resultsGame">1</span></div>
-        <p class="hint">Where everyone finished. 1 is a win, 8 is last. Each place can only be used once; leave a player blank if they did not play.</p>
+        <p class="hint">Where everyone finished. 1st is a win, 8th is last, and no two players can share a place. Leave anyone who sat the game out blank.</p>
         <div class="results__grid" id="resultsGrid"></div>
         <div class="gmpanel__row" style="margin-top:1rem">
           <button class="btn btn--accent" id="savePlacements">Submit placements</button>
@@ -156,6 +162,23 @@
           <button class="btn" id="autoFill">Fill from lobby order</button>
         </div>
         <p class="notice" id="resultsError" hidden></p>
+      </div>
+
+      <div class="results" id="penaltyPanel">
+        <div class="section-label">/ PENALTIES</div>
+        <p class="hint">For a rule broken or a restriction ignored. A penalty is a note on the record, not an automatic placement change &mdash; you decide what it costs and enter the placement you judge fair.</p>
+        <form class="penalty__form" id="penaltyForm" autocomplete="off" novalidate>
+          <div class="field">
+            <label for="penaltyPlayer">/ Player</label>
+            <select id="penaltyPlayer" required></select>
+          </div>
+          <div class="field">
+            <label for="penaltyReason">/ What happened</label>
+            <input id="penaltyReason" type="text" maxlength="200" placeholder="ignored their AFK round" required>
+          </div>
+          <button class="btn" type="submit">Record penalty</button>
+        </form>
+        <div class="penalty__list" id="penaltyList"></div>
       </div>
 
       <div class="gmpanel__pool" id="poolPanel" hidden>
@@ -169,7 +192,7 @@
             <div id="minorList"></div>
           </div>
         </div>
-        <p class="hint">Switched-off restrictions leave the draw for this lobby only. Already-rolled restrictions stay where they are.</p>
+        <p class="hint">Anything switched off here leaves the draw for this lobby. Restrictions already dealt this game stay where they are.</p>
       </div>
     </section>
 
@@ -194,7 +217,7 @@
     <footer class="footer">
       <div class="foot">
         <span id="boardStatus">LIVE</span>
-        <span><a href="/me">YOUR MATCHES</a></span>
+        <span><a href="/me">YOUR MATCHES</a> &middot; BUILT BY DEHPEH</span>
       </div>
     </footer>
   </div>
@@ -204,6 +227,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/lib/restrictions.js"></script>
+<script src="/assets/ui.js"></script>
 <script src="/assets/nav.js"></script>
 <script src="/assets/session.js"></script>
 </body>

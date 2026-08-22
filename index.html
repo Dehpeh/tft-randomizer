@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TFT Restriction Randomizer</title>
-<meta name="description" content="Rolls major and minor restrictions per player, per game, by rank — for the TFT tournament.">
+<meta name="description" content="The TFT tournament where your rank decides your handicap. Lobbies, restrictions, standings and results.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
     <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
   </nav>
   <span id="navAccount"></span>
-  <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
 </header>
 
 <main id="top">
@@ -51,24 +51,24 @@
     </div>
 
     <h1 class="hero__title">Restriction <em>Randomizer</em></h1>
-    <p class="hero__sub">Rank sets how many handicaps you carry. The gamemaster rolls them, the lobby sees them, and every result is seeded so it can be checked afterwards.</p>
+    <p class="hero__sub">The higher you climb, the heavier you play. Your rank decides how many handicaps you carry into every game &mdash; and the draw is not yours to make.</p>
   </section>
 
   <section class="gate">
     <div class="gate__grid gate__grid--three">
       <div class="gate__card">
-        <div class="section-label">/ RUNNING A LOBBY</div>
-        <p class="gate__blurb">A gamemaster opens a lobby and hands out the link. Players sign in, get rolled, play, and the gamemaster submits the placements at the end.</p>
-        <a class="btn btn--pill btn--accent" href="/session">Lobbies</a>
+        <div class="section-label">/ PLAYING TONIGHT</div>
+        <p class="gate__blurb">Your gamemaster sends a link. Sign in, take your seat, and your restrictions appear the moment they are rolled &mdash; the same screen everyone else is watching.</p>
+        <a class="btn btn--pill btn--accent" href="/session">Find your lobby</a>
       </div>
       <div class="gate__card">
         <div class="section-label">/ YOUR RECORD</div>
-        <p class="gate__blurb">Every game you have been rolled for, what you were carrying, where you finished, and which restrictions actually cost you places.</p>
+        <p class="gate__blurb">Every game you have played, what you were carrying, where you finished, and which restrictions have actually been costing you places.</p>
         <a class="btn btn--pill" href="/me">My matches</a>
       </div>
       <div class="gate__card">
-        <div class="section-label">/ ROLLING ON YOUR OWN</div>
-        <p class="gate__blurb">The same engine with no account and no server, rolling in your browser. For testing restrictions in customs before they reach a real lobby.</p>
+        <div class="section-label">/ PRACTICE</div>
+        <p class="gate__blurb">Roll yourself a handicap and take it into a normal game. Nothing here counts, nobody else sees it &mdash; it is for finding out what a restriction really does before it matters.</p>
         <a class="btn btn--pill" href="/roller">Solo roller</a>
       </div>
     </div>
@@ -78,21 +78,22 @@
     <div class="section-label">/ DISTRIBUTION BY RANK</div>
     <h2 class="title" data-reveal>Who gets what</h2>
     <div class="ranks__grid ranks__grid--static" id="ranksGrid" data-reveal></div>
-    <p class="hint" style="margin-top:1.25rem">Rolled fresh for every player, every game. Two similar restrictions in one roll &rarr; the lower one is rerolled automatically.</p>
+    <p class="hint" style="margin-top:1.25rem">Rolled fresh for every player, every game. Draw two restrictions that get in each other's way and the lesser one is thrown back automatically.</p>
   </section>
 
   <footer class="footer">
-    <div class="section-label">/ NOTES</div>
-    <p class="footer__blurb">Restrictions and the rank distribution come straight from the tournament doc. Both are subject to change &mdash; the list lives in <code>lib/restrictions.js</code>, one line per restriction, and the <code>family</code> tag is what decides which pairs count as &ldquo;similar&rdquo; for the reroll rule.</p>
+    <div class="section-label">/ HOW IT WORKS</div>
+    <p class="footer__blurb">Nobody picks their own handicap. The randomizer draws it, the gamemaster runs the lobby, and every roll is stamped so any result can be checked again afterwards. Restrictions and the rank spread follow the tournament rules and will change as those do.</p>
     <div class="foot">
-      <span>TFT TOURNAMENT &middot; RANDOMIZER</span>
-      <span>BUILT BY DANIEL</span>
+      <span>TFT TOURNAMENT</span>
+      <span>BUILT BY DEHPEH</span>
     </div>
   </footer>
 
 </main>
 
 <script src="/lib/restrictions.js"></script>
+<script src="/assets/ui.js"></script>
 <script src="/assets/nav.js"></script>
 <script>
 (function () {

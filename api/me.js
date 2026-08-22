@@ -25,6 +25,7 @@ module.exports = async function handler(req, res) {
 
   const lobbies = [];
   const matches = [];
+  const penalties = [];
 
   sessions.forEach((s) => {
     if (!s || !s.players || !s.players[account.id]) return;
@@ -34,8 +35,13 @@ module.exports = async function handler(req, res) {
       name: s.name,
       isGm: Boolean(seat.isGm),
       rank: seat.rank,
+      open: s.open !== false,
       players: Object.keys(s.players).length,
       createdAt: s.createdAt,
+    });
+
+    (s.penalties || []).forEach((p) => {
+      if (p.playerId === account.id) penalties.push(Object.assign({ lobby: s.name, code: s.code }, p));
     });
 
     Object.keys(s.rolls || {}).forEach((game) => {
@@ -63,10 +69,13 @@ module.exports = async function handler(req, res) {
 
   matches.sort((a, b) => b.at - a.at);
 
+  penalties.sort((a, b) => b.at - a.at);
+
   return lib.send(res, 200, {
     account: lib.publicAccount(account),
     lobbies,
     matches,
+    penalties,
     stats: summarise(matches),
   });
 };

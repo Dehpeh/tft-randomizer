@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Solo Roller — TFT</title>
-<meta name="description" content="Roll restrictions in your browser: no account, no lobby, nothing saved anywhere else.">
+<meta name="description" content="Practise with a random handicap before it counts. Nothing here affects the tournament.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
     <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
   </nav>
   <span id="navAccount"></span>
-  <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
 </header>
 
 <main id="top">
@@ -34,7 +34,7 @@
     <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
     <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
     <h1 class="hero__title">Solo <em>roller</em></h1>
-    <p class="hero__sub">Rolls here and nowhere else: nothing is saved to the server and no lobby sees it. For playtesting restrictions, or running a lobby by reading results out loud.</p>
+    <p class="hero__sub">Draw yourself a handicap and go play a normal game with it. Nothing here counts towards the tournament and nobody else can see it &mdash; this is where you find out what a restriction actually feels like.</p>
   </section>
 
   <!-- ============ ROLLER ============ -->
@@ -67,7 +67,7 @@
         <div class="dist" id="distBox"></div>
 
         <button class="btn btn--pill btn--accent" id="rollBtn">Roll restrictions</button>
-        <p class="hint">Press <b>R</b> anywhere to roll, <b>C</b> to copy the last result.</p>
+        <p class="hint">Press <b>R</b> to roll, <b>C</b> to copy the last result.</p>
       </div>
 
       <div class="plate" data-reveal>
@@ -107,7 +107,7 @@
         <button class="btn" id="poolReset">Reset</button>
       </div>
     </div>
-    <p class="hint" style="margin-top:0.75rem">Click a restriction to take it out of the draw. Playtesters: switch off anything that turns out to be unworkable and the change sticks in this browser. Lobbies have their own pool, set by the gamemaster.</p>
+    <p class="hint" style="margin-top:0.75rem">Click a restriction to take it out of your own draw &mdash; useful for practising one thing at a time. Your choices stay on this device and do not affect any lobby; a real lobby's pool is set by its gamemaster.</p>
     <div class="pool__cols">
       <div>
         <div class="section-label">/ MAJOR <span class="count" id="majorCount"></span></div>
@@ -130,7 +130,7 @@
         <button class="btn" id="logClear">Clear</button>
       </div>
     </div>
-    <p class="hint" style="margin-top:0.75rem">Saved rolls live in this browser only. Each row keeps its seed, so any result can be re-rolled and verified later.</p>
+    <p class="hint" style="margin-top:0.75rem">Saved rolls stay on this device. Each one keeps the stamp it was drawn with, so you can reproduce any of them later.</p>
     <div class="log__table">
       <div class="log__head">
         <span>/ TIME</span><span>/ PLAYER</span><span>/ RESTRICTIONS</span><span>/ SEED</span>
@@ -141,8 +141,8 @@
 
   <footer class="footer">
     <div class="foot">
-      <span>TFT TOURNAMENT &middot; SOLO ROLLER</span>
-      <span><a href="/session">RUN A LOBBY INSTEAD</a></span>
+      <span>TFT TOURNAMENT &middot; BUILT BY DEHPEH</span>
+      <span><a href="/session">GO TO YOUR LOBBY</a></span>
     </div>
   </footer>
 
@@ -151,6 +151,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/lib/restrictions.js"></script>
+<script src="/assets/ui.js"></script>
 <script src="/assets/nav.js"></script>
 <script src="/assets/app.js"></script>
 </body>

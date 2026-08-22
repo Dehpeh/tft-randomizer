@@ -37,6 +37,15 @@ module.exports = async function handler(req, res) {
 
   const me = found.playerId;
   const op = String(input.op || '');
+  if (!lib.requireLive(res, found.session, op)) return;
+
+  /* Deleting is not a mutation of the document, it is the end of it, so it
+     happens outside the update() below. */
+  if (op === 'deleteLobby') {
+    await store.del(lib.sKey(code));
+    return lib.send(res, 200, { deleted: code });
+  }
+
   let error = null;
 
   const session = await store.update(lib.sKey(code), (s) => {
@@ -56,6 +65,7 @@ module.exports = async function handler(req, res) {
         if (target.id === me) { error = 'You cannot remove yourself. Hand the lobby over first.'; return null; }
         delete s.players[target.id];
         Object.values(s.rolls).forEach((game) => { delete game[target.id]; });
+        s.penalties = (s.penalties || []).filter((p) => p.playerId !== target.id);
         Object.values(s.results || {}).forEach((r) => { if (r && r.placements) delete r.placements[target.id]; });
         return s;
       }
@@ -99,6 +109,34 @@ module.exports = async function handler(req, res) {
 
         s.results = s.results || {};
         s.results[game] = { placements, at: Date.now(), by: me };
+        return s;
+      }
+
+      /* A penalty is a note against a player for a game — a rule broken, a
+         restriction ignored. It never changes their placement by itself: the
+         gamemaster decides what it costs and enters the placement they judge
+         fair. This is the record of why. */
+      case 'addPenalty': {
+        if (!target) { error = 'No such player in this lobby.'; return null; }
+        const reason = String(input.reason || '').trim().slice(0, 200);
+        if (!reason) { error = 'Say what the penalty is for.'; return null; }
+        const game = Number(input.game || s.game);
+        s.penalties = s.penalties || [];
+        s.penalties.unshift({
+          id: 'p' + Date.now().toString(36) + Math.floor(s.penalties.length).toString(36),
+          playerId: target.id,
+          game,
+          reason,
+          at: Date.now(),
+          by: me,
+        });
+        s.penalties = s.penalties.slice(0, 200);
+        return s;
+      }
+
+      case 'removePenalty': {
+        const id = String(input.penaltyId || '');
+        s.penalties = (s.penalties || []).filter((p) => p.id !== id);
         return s;
       }
 

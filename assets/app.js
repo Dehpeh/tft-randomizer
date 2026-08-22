@@ -217,11 +217,13 @@
   function land(slot, pick) {
     slot.classList.remove('is-spinning');
     slot.classList.add('is-locked');
-    slot.querySelector('.slot__text').textContent = pick.text;
+    slot.querySelector('.slot__text').innerHTML = esc(pick.text) + (pick.detail
+      ? `<span class="detail">${esc(pick.detail.label)}: <b>${esc(pick.detail.value)}</b></span>`
+      : '');
     const meta = slot.querySelector('.slot__meta');
     meta.textContent = pick.rerolls
-      ? `family: ${pick.family} · ${pick.rerolls} auto-reroll${pick.rerolls > 1 ? 's' : ''} for a clash`
-      : `family: ${pick.family}`;
+      ? `${pick.rerolls} auto-reroll${pick.rerolls > 1 ? 's' : ''} for a clash`
+      : '';
   }
 
   function rerollOne(index) {
@@ -266,7 +268,7 @@
   function resultText(r) {
     const head = `${r.player || 'Unnamed player'} — ${r.rank.name} · Game ${r.game}`;
     const lines = r.picks.length
-      ? r.picks.map((p) => `[${p.tier.toUpperCase()}] ${p.text}`)
+      ? r.picks.map((p) => `[${p.tier.toUpperCase()}] ${T.pickText(p)}`)
       : ['[NONE] No restrictions'];
     return [head, ...lines, `seed ${r.seed}`].join('\n');
   }
@@ -301,7 +303,7 @@
       rank: r.rank.name,
       game: r.game,
       seed: r.seed,
-      picks: r.picks.map((p) => ({ tier: p.tier, text: p.text })),
+      picks: r.picks.map((p) => ({ tier: p.tier, text: T.pickText(p) })),
     });
     save(KEY.log, state.log);
     state.saved = true;
@@ -409,9 +411,15 @@
     download('tft-restrictions.csv', logAsCsv(), 'text/csv');
   });
 
-  $('logClear').addEventListener('click', () => {
+  $('logClear').addEventListener('click', async () => {
     if (!state.log.length) return;
-    if (!confirm(`Clear all ${state.log.length} logged rolls? This cannot be undone.`)) return;
+    const ok = await window.TFTUI.confirm({
+      title: 'Clear the log?',
+      body: `All ${state.log.length} saved roll${state.log.length === 1 ? '' : 's'} on this device, gone. Lobby results are not affected.`,
+      confirmText: 'Clear the log',
+      danger: true,
+    });
+    if (!ok) return;
     state.log = [];
     save(KEY.log, []);
     buildLog();

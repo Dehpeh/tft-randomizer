@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Matches — TFT</title>
-<meta name="description" content="Your account, your matches, and what each restriction actually costs you.">
+<meta name="description" content="Your tournament record: every game, every handicap, and where you finished.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -23,7 +23,7 @@
     <a href="/roller"><span class="key">[R]</span> <span class="lbl">SOLO ROLLER</span></a>
   </nav>
   <span id="navAccount"></span>
-  <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
 </header>
 
 <main id="top">
@@ -34,14 +34,14 @@
       <div class="gate__card">
         <div class="section-label">/ SIGN IN</div>
         <h1 class="gate__title" id="authTitle">Your name and passcode</h1>
-        <p class="gate__blurb">One account for the whole tournament: it carries your rank, your restrictions and your results.</p>
+        <p class="gate__blurb">One account for the whole tournament. It remembers your rank, everything you have been dealt, and how you finished.</p>
 
         <div class="seg" id="authTabs" role="group" aria-label="Sign in or register">
           <button type="button" data-mode="login" aria-pressed="true">Sign in</button>
           <button type="button" data-mode="register" aria-pressed="false">First time</button>
         </div>
 
-        <form id="authForm" autocomplete="off">
+        <form id="authForm" autocomplete="off" novalidate>
           <div class="field">
             <label for="aName">/ Name</label>
             <input id="aName" type="text" placeholder="your name" maxlength="32" required>
@@ -56,7 +56,7 @@
           </div>
           <button class="btn btn--pill btn--accent" type="submit" id="authSubmit">Sign in</button>
         </form>
-        <p class="hint" id="authHint">Pick something you will remember. There is no email on file, so only an admin can reset it.</p>
+        <p class="hint" id="authHint">Pick a code you will remember &mdash; there is no email attached to it, so only an organiser can reset it for you.</p>
         <p class="notice" id="authError" hidden></p>
       </div>
     </div>
@@ -84,7 +84,12 @@
     <section class="roster">
       <div class="section-label">/ RESTRICTIONS, BY HOW THEY TREATED YOU</div>
       <div class="rest__table" id="restTable"></div>
-      <p class="hint" style="margin-top:1rem">Average placement in the games you carried each one. Tiny samples early on &mdash; the game count is there so you can tell.</p>
+      <p class="hint" style="margin-top:1rem">Your average finish in the games you carried each one. Early on these are tiny samples &mdash; the game count is there so you know how much to trust them.</p>
+    </section>
+
+    <section class="roster" id="penaltySection" hidden>
+      <div class="section-label">/ PENALTIES</div>
+      <div class="penalty__list" id="myPenalties"></div>
     </section>
 
     <section class="log">
@@ -101,7 +106,7 @@
 
     <footer class="footer">
       <div class="foot">
-        <span>TFT TOURNAMENT &middot; YOUR RECORD</span>
+        <span>TFT TOURNAMENT &middot; BUILT BY DEHPEH</span>
         <span><a href="/session">LOBBIES</a></span>
       </div>
     </footer>
@@ -112,6 +117,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/lib/restrictions.js"></script>
+<script src="/assets/ui.js"></script>
 <script src="/assets/nav.js"></script>
 <script src="/assets/me.js"></script>
 </body>

@@ -89,6 +89,7 @@ function newSession(code, name) {
     players: {},         // id -> seat
     rolls: {},           // game -> { playerId -> roll }
     results: {},         // game -> { placements: { playerId -> 1..8 }, at, by }
+    penalties: [],       // { id, playerId, game, reason, at, by }
     v: 0,
   };
 }
@@ -121,6 +122,7 @@ function publicSession(session, viewerId) {
     players,
     rolls: session.rolls,
     results: session.results || {},
+    penalties: session.penalties || [],
     you: viewerId || null,
     isGm: Boolean(viewerId && session.players[viewerId] && session.players[viewerId].isGm),
   };
@@ -144,6 +146,18 @@ async function requireGm(req, res, code) {
   return found;
 }
 
+/* Closing a lobby is not the same as pausing signups: it ends the thing. Rolls,
+   placements and penalties are all refused until it is reopened, so a closed
+   lobby is a record rather than a live document. The ops that manage the lobby
+   itself — reopening it, deleting it, handing it over — stay allowed. */
+const ALWAYS_ALLOWED = new Set(['setOpen', 'deleteLobby', 'transferGm']);
+
+function requireLive(res, session, op) {
+  if (session.open || ALWAYS_ALLOWED.has(op)) return true;
+  fail(res, 409, 'This lobby is closed. Reopen it first if you need to change something.');
+  return false;
+}
+
 /* Remember which lobbies an account has played, so the profile page can find
    them without scanning every key in the database. */
 async function rememberSession(accountId, code) {
@@ -161,6 +175,6 @@ const validRank = (id) => Boolean(rules.rankById(id));
 module.exports = {
   sKey, uKey, send, fail, body, guard, cleanCode,
   newAccount, publicAccount, requireAccount,
-  newSession, newSeat, publicSession, requireMember, requireGm, rememberSession,
+  newSession, newSeat, publicSession, requireMember, requireGm, requireLive, rememberSession,
   validRank, rules, store, auth,
 };

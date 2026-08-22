@@ -136,6 +136,22 @@ fact, and the solo roller has a seed field to do it with.
 solo roller, per-lobby for a gamemaster. The server refuses to go below 2 major
 and 3 minor, since Challenger and Diamond could not be rolled otherwise.
 
+**Rolled details.** Some restrictions leave a blank a player would otherwise
+fill in themselves — which shop slot is locked, which stage you sit out, which
+augment is randomised. Left to the player that is a choice, and a choice is an
+advantage, so the randomizer fills it from the same seeded stream and shows it
+as a rolled result beside the restriction.
+
+**Closed lobbies.** Closing a lobby ends it: no new players, no rolls, no
+placements, no penalties, enforced server-side rather than only hidden in the
+UI. The board dims and says so. A gamemaster can reopen it, or delete it and
+everything in it.
+
+**Penalties.** A gamemaster can record a penalty against a player for a game —
+a rule broken, a restriction ignored. It never changes a placement by itself;
+the gamemaster decides what it costs. Penalties are visible to the whole lobby,
+on the player's own record, and in the organiser dashboard.
+
 **Placements and standings.** Placements are validated like a result, not a
 form: every entry names a player in that lobby, sits in 1-8, and is unique — a
 lobby where two people came fourth is a typo. Standings score 1st = 8 points
@@ -148,6 +164,18 @@ server-side from the same documents the gamemaster sees.
 
 **The server rolls.** A player's browser never decides its own restrictions,
 cannot claim a rank it was not given, and cannot submit its own placement.
+
+## Organiser dashboard
+
+, behind the same . Everyone who signed up, what they
+have been dealt, where they finished, what has been called against them, and
+which lobbies exist. From there you can reset a forgotten passcode, delete an
+account, or delete a lobby, and export the whole tournament as CSV — one row per
+player per game, restrictions and penalties included.
+
+The key is entered per session and kept in that tab only; closing the tab logs
+you out. It is a shared credential, not an account, so nothing done there is
+attributable to a person.
 
 ## Admin: resets
 

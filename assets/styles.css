@@ -1287,3 +1287,283 @@ button, input, select { font-weight: 300; }
 .plate__empty--clean { color: var(--teal); }
 .plate__empty--clean span::after { content: none; }
 .pcard__waiting--clean { color: var(--teal); }
+
+/* ============ CARBON ============
+   The dark theme with no blue in it: one warm-neutral ramp, an off-white ink,
+   and a single amber accent so a placement or a lobby code still reads as the
+   thing you are meant to look at. */
+[data-theme="carbon"] {
+  --red: #E06C5A;
+  --bg: #141414;
+  --bg-image: none;
+  --panel: #1C1C1C;
+  --line: #2E2E2E;
+  --dim: #8A8A85;
+  --bright: #EDEBE6;
+  --teal: #D8D5CE;
+  --purple: #A9A6A0;
+  --gold: #C9A227;
+  --blue: #A9A6A0;
+  --spectrum-ink: #141414;
+}
+
+/* The spectrum sweep is the one splash of colour on the site; under Carbon it
+   would be the only saturated thing on screen, so it goes quiet too. */
+[data-theme="carbon"] { --spectrum: #3A3A38; }
+[data-theme="carbon"] .row:hover .row__name,
+[data-theme="carbon"] .lobbyrow:hover,
+[data-theme="carbon"] .rank-card:hover,
+[data-theme="carbon"] .standings__row:hover,
+[data-theme="carbon"] .log__row:hover { color: var(--bright); }
+[data-theme="carbon"] ::selection { background: #3A3A38; color: var(--bright); }
+
+/* ============ THEME PICKER ============ */
+.topbar__theme {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+  color: var(--teal);
+  background: var(--panel);
+  border: none;
+  border-radius: 2px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.topbar__theme:hover { background: var(--teal); color: var(--bg); }
+.topbar__theme option { background: var(--bg); color: var(--bright); text-transform: none; }
+
+/* ============ MODAL ============
+   Replaces confirm(): same job, this site's clothes. */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.16s linear;
+}
+
+.modal.is-up { opacity: 1; }
+
+.modal__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0.82;
+}
+
+.modal__card {
+  position: relative;
+  width: min(30rem, 100%);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 1.5rem 1.5rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transform: translateY(8px);
+  transition: transform 0.24s var(--ease);
+}
+
+.modal.is-up .modal__card { transform: none; }
+
+.modal__title {
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  font-weight: 300;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  color: var(--bright);
+}
+
+.modal__body { font-size: 0.98rem; line-height: 1.45; color: var(--dim); }
+.modal__actions { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: 0.25rem; }
+
+.btn--danger { color: var(--red); border-color: var(--red); }
+.btn--danger:hover { background: var(--red); border-color: var(--red); color: var(--bg); }
+
+/* ============ FIELD ERRORS ============ */
+.field--bad input,
+.field--bad select { border-bottom-color: var(--red); }
+
+.field__error {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: -0.012em;
+  color: var(--red);
+  margin-top: 0.15rem;
+}
+
+/* ============ ROLLED DETAIL ============
+   Which shop slot, which stage: rolled by the randomizer rather than chosen by
+   the player, so it is marked as a result rather than folded into the text. */
+.detail {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  padding: 2px 6px;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.slot__detail { margin: 0.4rem 0 0; }
+
+/* ============ RANK GRID ============
+   Eleven ranks into a grid of fixed tracks leaves a hole in the last row.
+   Flex with a grow factor lets the final row's cards share the leftover width
+   instead, so the block always ends square. */
+.ranks__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+/* A quarter each, so eleven ranks break 4-4-3 and the short last row stretches
+   to close the block rather than leaving a hole in the corner. */
+.ranks__grid .rank-card { flex: 1 1 calc(25% - 1px); min-width: 10rem; }
+
+/* ============ CLOSED LOBBY ============
+   A closed lobby is finished, not merely quiet: it stops taking players, rolls
+   and results, so it should look settled rather than live. */
+.board--closed .mine,
+.board--closed .roster,
+.board--closed .standings,
+.board--closed .gmpanel { opacity: 0.72; }
+
+.board--closed .lobby { border-bottom-color: var(--red); }
+
+.closed-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--red);
+  border: 1px dotted var(--red);
+  border-radius: 2px;
+  padding: 0.6rem 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.closed-banner b { color: var(--red); font-weight: 400; }
+.closed-banner__actions { display: flex; gap: 0.4rem; margin-left: auto; flex-wrap: wrap; }
+
+.lobbyrow--closed .lobbyrow__name { color: var(--dim); }
+
+.tag--closed { color: var(--red); border-color: var(--red); border-style: solid; }
+.tag--live { color: var(--gold); border-color: var(--gold); border-style: solid; }
+
+/* ============ PENALTIES ============ */
+.penalty {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--red);
+  border-left: 2px solid var(--red);
+  padding: 0.3rem 0 0.3rem 0.5rem;
+}
+
+.penalty__list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.2rem; }
+
+.penalty__form {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+  gap: 0.75rem 1rem;
+  align-items: end;
+  margin: 1rem 0 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .penalty__form { grid-template-columns: 1fr; }
+}
+
+/* ============ ORGANISER ============ */
+.admin__search {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--bright);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.5rem 0.7rem;
+  min-width: 12rem;
+  outline: none;
+}
+
+.admin__search:focus { border-color: var(--teal); }
+.admin__table { margin-top: 1.5rem; border-top: 1px solid var(--line); }
+
+.admin__row { border-bottom: 1px dotted var(--line); }
+
+.admin__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.5rem;
+  cursor: pointer;
+  list-style: none;
+  transition: background 0.12s linear;
+}
+
+.admin__summary::-webkit-details-marker { display: none; }
+.admin__summary:hover { background: var(--panel); }
+.admin__row[open] .admin__summary { background: var(--panel); }
+
+.admin__name { font-size: 1.05rem; letter-spacing: -0.04em; color: var(--bright); }
+
+.admin__nums {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--dim);
+  text-align: right;
+}
+
+.admin__detail { padding: 0.5rem 0.5rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+.admin__meta {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--dim);
+}
+
+.admin__actions { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem; }
+
+.admin__lobby {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px dotted var(--line);
+}
+
+.admin__lobby .admin__name a { border-bottom: 1px dotted var(--line); }

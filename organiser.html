@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Organiser — TFT</title>
+<meta name="description" content="Tournament control: every player, every lobby, every result.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/styles.css">
+<script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('tft.theme');if(t&&t!=='light')document.documentElement.setAttribute('data-theme',t);if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('motion-reduced');}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23011627'/><rect x='3' y='3' width='10' height='4' fill='%23F0C078'/><rect x='3' y='9' width='4' height='4' fill='%23EF5350'/><rect x='9' y='9' width='4' height='4' fill='%2375D1C4'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar__flag" href="/" aria-label="Home">
+    <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
+  </a>
+  <nav class="topbar__nav" aria-label="Primary">
+    <a href="/session"><span class="key">[G]</span> <span class="lbl">LOBBIES</span></a>
+    <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
+  </nav>
+  <span id="navAccount"></span>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
+</header>
+
+<main id="top">
+
+  <!-- ============ KEY ============ -->
+  <section class="gate gate--auth" id="keyGate" hidden>
+    <div class="gate__grid gate__grid--one">
+      <div class="gate__card">
+        <div class="section-label">/ ORGANISER</div>
+        <h1 class="gate__title">Tournament control</h1>
+        <p class="gate__blurb">Everyone who signed up, every lobby, every result and every penalty in one place. Organiser key required.</p>
+        <form id="keyForm" autocomplete="off" novalidate>
+          <div class="field">
+            <label for="adminKey">/ Organiser key</label>
+            <input id="adminKey" type="password" autocomplete="off" placeholder="paste the key" required>
+          </div>
+          <button class="btn btn--pill btn--accent" type="submit">Open the dashboard</button>
+        </form>
+        <p class="hint">The key is kept for this tab only and is never stored. Close the tab and it is gone.</p>
+        <p class="notice" id="keyError" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="dash" hidden>
+    <section class="lobby">
+      <div class="lobby__bar">
+        <div>
+          <div class="section-label">/ ORGANISER</div>
+          <h1 class="title">Tournament control</h1>
+        </div>
+        <div class="lobby__meta">
+          <button class="btn" id="refresh">Refresh</button>
+          <button class="btn" id="exportCsv">Export CSV</button>
+          <button class="btn" id="lockDash">Lock</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="section-label">/ AT A GLANCE</div>
+      <div class="stats__grid" id="totals"></div>
+    </section>
+
+    <section class="roster">
+      <div class="log__head-row">
+        <h2 class="title">Players <span class="count" id="playerCount"></span></h2>
+        <div class="log__tools">
+          <input class="admin__search" id="playerSearch" type="search" placeholder="filter by name" autocomplete="off">
+        </div>
+      </div>
+      <div class="admin__table" id="playerTable"></div>
+    </section>
+
+    <section class="roster">
+      <div class="log__head-row">
+        <h2 class="title">Lobbies <span class="count" id="lobbyCount"></span></h2>
+      </div>
+      <div class="admin__table" id="lobbyTable"></div>
+    </section>
+
+    <footer class="footer">
+      <div class="foot">
+        <span>TFT TOURNAMENT &middot; ORGANISER</span>
+        <span>BUILT BY DEHPEH</span>
+      </div>
+    </footer>
+  </div>
+
+</main>
+
+<script src="/lib/restrictions.js"></script>
+<script src="/assets/ui.js"></script>
+<script src="/assets/nav.js"></script>
+<script src="/assets/organiser.js"></script>
+</body>
+</html>

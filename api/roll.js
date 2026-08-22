@@ -20,6 +20,7 @@ module.exports = async function handler(req, res) {
 
   const found = await lib.requireGm(req, res, code);
   if (!found) return;
+  if (!lib.requireLive(res, found.session, 'roll')) return;
 
   const game = Number(input.game || found.session.game || 1);
   if (!Number.isInteger(game) || game < 1 || game > 9) return lib.fail(res, 400, 'Game must be 1-9.');
