@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TFT Session</title>
+<meta name="description" content="Tournament lobby: the gamemaster rolls, everyone sees their restrictions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('tft.theme');if(t&&t!=='light')document.documentElement.setAttribute('data-theme',t);if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('motion-reduced');}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23011627'/><rect x='3' y='3' width='10' height='4' fill='%23F0C078'/><rect x='3' y='9' width='4' height='4' fill='%23EF5350'/><rect x='9' y='9' width='4' height='4' fill='%2375D1C4'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar__flag" href="/" aria-label="Solo roller">
+    <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
+  </a>
+  <nav class="topbar__nav" aria-label="Primary">
+    <a href="/"><span class="key">[S]</span> <span class="lbl">SOLO ROLLER</span></a>
+    <a href="/session"><span class="key">[N]</span> <span class="lbl">NEW SESSION</span></a>
+  </nav>
+  <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
+</header>
+
+<main id="top">
+
+  <!-- ============ GATE: create or join ============ -->
+  <section class="hero hero--tight" id="gate" hidden>
+    <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
+    <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
+    <h1 class="hero__title">Tournament <em>sessions</em></h1>
+    <p class="hero__sub">A gamemaster opens a lobby, players join with their League name and a 6-digit passcode, and every roll lands on one dashboard.</p>
+  </section>
+
+  <section class="gate" id="gateForms" hidden>
+    <div class="gate__grid">
+      <form class="gate__card" id="createForm" autocomplete="off">
+        <div class="section-label">/ CREATE A SESSION</div>
+        <p class="gate__blurb">You become the gamemaster: you set ranks, roll for the lobby, and hand out the link.</p>
+        <div class="field">
+          <label for="cSession">/ Lobby name</label>
+          <input id="cSession" type="text" placeholder="Group A" maxlength="60" required>
+        </div>
+        <div class="field">
+          <label for="cName">/ Your League name</label>
+          <input id="cName" type="text" placeholder="Name#TAG" maxlength="32" required>
+        </div>
+        <div class="field">
+          <label for="cRank">/ Your peak rank</label>
+          <select id="cRank" required></select>
+        </div>
+        <div class="field">
+          <label for="cPass">/ 6-digit passcode</label>
+          <input id="cPass" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+        </div>
+        <button class="btn btn--pill btn--accent" type="submit">Open the lobby</button>
+        <p class="notice" id="createError" hidden></p>
+      </form>
+
+      <form class="gate__card" id="joinForm" autocomplete="off">
+        <div class="section-label">/ JOIN A SESSION</div>
+        <p class="gate__blurb">Got a code from your gamemaster? Drop it in. The link they sent you skips this step.</p>
+        <div class="field">
+          <label for="jCode">/ Session code</label>
+          <input id="jCode" type="text" placeholder="XXXXXX" maxlength="7" required>
+        </div>
+        <button class="btn btn--pill" type="submit">Go to the lobby</button>
+        <p class="notice" id="joinError" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ LOGIN to a known session ============ -->
+  <section class="gate" id="login" hidden>
+    <div class="gate__grid gate__grid--one">
+      <form class="gate__card" id="loginForm" autocomplete="off">
+        <div class="section-label">/ SIGN IN</div>
+        <h1 class="gate__title" id="lobbyName">Lobby</h1>
+        <p class="gate__blurb" id="lobbyMeta"></p>
+        <div class="field">
+          <label for="lName">/ League name</label>
+          <input id="lName" type="text" placeholder="Name#TAG" maxlength="32" required>
+        </div>
+        <div class="field">
+          <label for="lPass">/ 6-digit passcode</label>
+          <input id="lPass" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+        </div>
+        <div class="field" id="lRankField">
+          <label for="lRank">/ Peak rank <span class="hint">(first time only)</span></label>
+          <select id="lRank"></select>
+        </div>
+        <button class="btn btn--pill btn--accent" type="submit">Enter the lobby</button>
+        <p class="hint">First time in this lobby, your name and passcode are yours from then on. Forgot it? The gamemaster can reset you.</p>
+        <p class="notice" id="loginError" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="board" hidden>
+    <section class="lobby">
+      <div class="lobby__bar">
+        <div>
+          <div class="section-label">/ LOBBY</div>
+          <h1 class="title" id="boardName">Lobby</h1>
+        </div>
+        <div class="lobby__meta">
+          <span class="lobby__code" id="boardCode">------</span>
+          <button class="btn" id="copyLink">Copy invite link</button>
+          <button class="btn" id="signOut">Sign out</button>
+        </div>
+      </div>
+      <div class="lobby__games" id="gameTabs" role="group" aria-label="Game"></div>
+    </section>
+
+    <section class="mine" id="mine"></section>
+
+    <section class="gmpanel" id="gmPanel" hidden>
+      <div class="section-label">/ GAMEMASTER</div>
+      <div class="gmpanel__row">
+        <button class="btn btn--accent" id="rollMissing">Roll everyone without restrictions</button>
+        <button class="btn" id="rollAll">Re-roll the whole lobby</button>
+        <button class="btn" id="clearGame">Clear this game</button>
+        <button class="btn" id="toggleOpen">Close the lobby</button>
+        <button class="btn" id="togglePool">Restriction pool</button>
+      </div>
+      <p class="hint" id="gmHint"></p>
+      <div class="gmpanel__pool" id="poolPanel" hidden>
+        <div class="pool__cols">
+          <div>
+            <div class="section-label">/ MAJOR <span class="count" id="majorCount"></span></div>
+            <div id="majorList"></div>
+          </div>
+          <div>
+            <div class="section-label">/ MINOR <span class="count" id="minorCount"></span></div>
+            <div id="minorList"></div>
+          </div>
+        </div>
+        <p class="hint">Switched-off restrictions leave the draw for this lobby only. Already-rolled restrictions stay where they are.</p>
+      </div>
+    </section>
+
+    <section class="roster">
+      <div class="log__head-row">
+        <h2 class="title">Lobby <span class="count" id="rosterCount"></span></h2>
+        <div class="log__tools">
+          <button class="btn" id="copyBoard">Copy for Discord</button>
+        </div>
+      </div>
+      <div class="roster__grid" id="rosterGrid"></div>
+    </section>
+
+    <footer class="footer">
+      <div class="foot">
+        <span id="boardStatus">LIVE</span>
+        <span><a href="/">SOLO ROLLER</a></span>
+      </div>
+    </footer>
+  </div>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/restrictions.js"></script>
+<script src="/session.js"></script>
+</body>
+</html>

@@ -226,7 +226,7 @@
     if (state.spinning || !state.result) return;
     state.attempt++;
     const seed = `${state.result.seed}#${index}.${state.attempt}`;
-    const res = T.rerollSlot(state.result, index, enabled(), seed);
+    const res = T.rerollSlot(state.result.picks, index, enabled(), seed);
     if (!res.ok) { toast(res.error); return; }
 
     state.result.picks = res.picks;
