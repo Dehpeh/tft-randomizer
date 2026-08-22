@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TFT Session</title>
-<meta name="description" content="Tournament lobby: the gamemaster rolls, everyone sees their restrictions.">
+<title>Lobby — TFT</title>
+<meta name="description" content="Tournament lobby: the gamemaster rolls, everyone sees their restrictions, placements go in at the end.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -15,56 +15,80 @@
 <body>
 
 <header class="topbar">
-  <a class="topbar__flag" href="/" aria-label="Solo roller">
+  <a class="topbar__flag" href="/" aria-label="Home">
     <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
   </a>
   <nav class="topbar__nav" aria-label="Primary">
-    <a href="/"><span class="key">[S]</span> <span class="lbl">SOLO ROLLER</span></a>
-    <a href="/session"><span class="key">[N]</span> <span class="lbl">NEW SESSION</span></a>
+    <a href="/session"><span class="key">[G]</span> <span class="lbl">LOBBIES</span></a>
+    <a href="/roller"><span class="key">[R]</span> <span class="lbl">SOLO ROLLER</span></a>
+    <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
   </nav>
+  <span id="navAccount"></span>
   <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
 </header>
 
 <main id="top">
 
-  <!-- ============ GATE: create or join ============ -->
-  <section class="hero hero--tight" id="gate" hidden>
+  <!-- ============ SIGN IN / REGISTER ============ -->
+  <section class="gate" id="auth" hidden>
+    <div class="gate__grid gate__grid--one">
+      <div class="gate__card">
+        <div class="section-label">/ SIGN IN</div>
+        <h1 class="gate__title" id="authTitle">Your League name and passcode</h1>
+        <p class="gate__blurb" id="authBlurb">One account for the whole tournament: it carries your rank, your restrictions and your results.</p>
+
+        <div class="seg" id="authTabs" role="group" aria-label="Sign in or register">
+          <button type="button" data-mode="login" aria-pressed="true">Sign in</button>
+          <button type="button" data-mode="register" aria-pressed="false">First time</button>
+        </div>
+
+        <form id="authForm" autocomplete="off">
+          <div class="field">
+            <label for="aName">/ League name</label>
+            <input id="aName" type="text" placeholder="Name#TAG" maxlength="32" required>
+          </div>
+          <div class="field">
+            <label for="aPass">/ 6-digit passcode</label>
+            <input id="aPass" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          </div>
+          <div class="field" id="aRankField" hidden>
+            <label for="aRank">/ Peak rank</label>
+            <select id="aRank"></select>
+          </div>
+          <button class="btn btn--pill btn--accent" type="submit" id="authSubmit">Sign in</button>
+        </form>
+        <p class="hint" id="authHint">Pick something you will remember. There is no email on file, so only an admin can reset it.</p>
+        <p class="notice" id="authError" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOBBY LIST / CREATE / JOIN ============ -->
+  <section class="hero hero--tight" id="gateHero" hidden>
     <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
     <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
-    <h1 class="hero__title">Tournament <em>sessions</em></h1>
-    <p class="hero__sub">A gamemaster opens a lobby, players join with their League name and a 6-digit passcode, and every roll lands on one dashboard.</p>
+    <h1 class="hero__title">Tournament <em>lobbies</em></h1>
+    <p class="hero__sub">Open one as gamemaster, or drop in the code your gamemaster sent you.</p>
   </section>
 
   <section class="gate" id="gateForms" hidden>
     <div class="gate__grid">
       <form class="gate__card" id="createForm" autocomplete="off">
-        <div class="section-label">/ CREATE A SESSION</div>
-        <p class="gate__blurb">You become the gamemaster: you set ranks, roll for the lobby, and hand out the link.</p>
+        <div class="section-label">/ OPEN A LOBBY</div>
+        <p class="gate__blurb">You become the gamemaster: you set ranks, roll for everyone, and submit the placements at the end.</p>
         <div class="field">
           <label for="cSession">/ Lobby name</label>
           <input id="cSession" type="text" placeholder="Group A" maxlength="60" required>
-        </div>
-        <div class="field">
-          <label for="cName">/ Your League name</label>
-          <input id="cName" type="text" placeholder="Name#TAG" maxlength="32" required>
-        </div>
-        <div class="field">
-          <label for="cRank">/ Your peak rank</label>
-          <select id="cRank" required></select>
-        </div>
-        <div class="field">
-          <label for="cPass">/ 6-digit passcode</label>
-          <input id="cPass" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
         </div>
         <button class="btn btn--pill btn--accent" type="submit">Open the lobby</button>
         <p class="notice" id="createError" hidden></p>
       </form>
 
       <form class="gate__card" id="joinForm" autocomplete="off">
-        <div class="section-label">/ JOIN A SESSION</div>
-        <p class="gate__blurb">Got a code from your gamemaster? Drop it in. The link they sent you skips this step.</p>
+        <div class="section-label">/ JOIN A LOBBY</div>
+        <p class="gate__blurb">The link your gamemaster sent skips this step. The code works just as well.</p>
         <div class="field">
-          <label for="jCode">/ Session code</label>
+          <label for="jCode">/ Lobby code</label>
           <input id="jCode" type="text" placeholder="XXXXXX" maxlength="7" required>
         </div>
         <button class="btn btn--pill" type="submit">Go to the lobby</button>
@@ -73,29 +97,22 @@
     </div>
   </section>
 
-  <!-- ============ LOGIN to a known session ============ -->
-  <section class="gate" id="login" hidden>
+  <section class="gate" id="myLobbies" hidden>
+    <div class="section-label">/ YOUR LOBBIES</div>
+    <div class="lobbylist" id="lobbyList"></div>
+  </section>
+
+  <!-- ============ TAKE A SEAT ============ -->
+  <section class="gate" id="joinGate" hidden>
     <div class="gate__grid gate__grid--one">
-      <form class="gate__card" id="loginForm" autocomplete="off">
-        <div class="section-label">/ SIGN IN</div>
-        <h1 class="gate__title" id="lobbyName">Lobby</h1>
-        <p class="gate__blurb" id="lobbyMeta"></p>
-        <div class="field">
-          <label for="lName">/ League name</label>
-          <input id="lName" type="text" placeholder="Name#TAG" maxlength="32" required>
-        </div>
-        <div class="field">
-          <label for="lPass">/ 6-digit passcode</label>
-          <input id="lPass" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
-        </div>
-        <div class="field" id="lRankField">
-          <label for="lRank">/ Peak rank <span class="hint">(first time only)</span></label>
-          <select id="lRank"></select>
-        </div>
-        <button class="btn btn--pill btn--accent" type="submit">Enter the lobby</button>
-        <p class="hint">First time in this lobby, your name and passcode are yours from then on. Forgot it? The gamemaster can reset you.</p>
-        <p class="notice" id="loginError" hidden></p>
-      </form>
+      <div class="gate__card">
+        <div class="section-label">/ JOIN THIS LOBBY</div>
+        <h1 class="gate__title" id="joinName">Lobby</h1>
+        <p class="gate__blurb" id="joinMeta"></p>
+        <p class="gate__blurb">You will be seated as <b id="joinAs"></b> at your account's peak rank. The gamemaster can correct the rank if it is wrong.</p>
+        <button class="btn btn--pill btn--accent" id="joinNow">Take a seat</button>
+        <p class="notice" id="joinGateError" hidden></p>
+      </div>
     </div>
   </section>
 
@@ -110,7 +127,7 @@
         <div class="lobby__meta">
           <span class="lobby__code" id="boardCode">------</span>
           <button class="btn" id="copyLink">Copy invite link</button>
-          <button class="btn" id="signOut">Sign out</button>
+          <a class="btn" href="/session">All lobbies</a>
         </div>
       </div>
       <div class="lobby__games" id="gameTabs" role="group" aria-label="Game"></div>
@@ -128,6 +145,19 @@
         <button class="btn" id="togglePool">Restriction pool</button>
       </div>
       <p class="hint" id="gmHint"></p>
+
+      <div class="results" id="resultsPanel">
+        <div class="section-label">/ PLACEMENTS &mdash; GAME <span id="resultsGame">1</span></div>
+        <p class="hint">Where everyone finished. 1 is a win, 8 is last. Each place can only be used once; leave a player blank if they did not play.</p>
+        <div class="results__grid" id="resultsGrid"></div>
+        <div class="gmpanel__row" style="margin-top:1rem">
+          <button class="btn btn--accent" id="savePlacements">Submit placements</button>
+          <button class="btn" id="clearPlacements">Clear placements</button>
+          <button class="btn" id="autoFill">Fill from lobby order</button>
+        </div>
+        <p class="notice" id="resultsError" hidden></p>
+      </div>
+
       <div class="gmpanel__pool" id="poolPanel" hidden>
         <div class="pool__cols">
           <div>
@@ -153,10 +183,18 @@
       <div class="roster__grid" id="rosterGrid"></div>
     </section>
 
+    <section class="standings">
+      <div class="log__head-row">
+        <h2 class="title">Standings</h2>
+        <span class="hint">1st = 8 points &middot; 8th = 1 point</span>
+      </div>
+      <div class="standings__table" id="standingsTable"></div>
+    </section>
+
     <footer class="footer">
       <div class="foot">
         <span id="boardStatus">LIVE</span>
-        <span><a href="/">SOLO ROLLER</a></span>
+        <span><a href="/me">YOUR MATCHES</a></span>
       </div>
     </footer>
   </div>
@@ -166,6 +204,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/lib/restrictions.js"></script>
+<script src="/assets/nav.js"></script>
 <script src="/assets/session.js"></script>
 </body>
 </html>

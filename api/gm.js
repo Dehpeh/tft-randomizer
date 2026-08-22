@@ -1,30 +1,36 @@
-/* POST /api/gm — everything else the gamemaster can do to a lobby.
+/* POST /api/gm — everything the gamemaster can do to a lobby.
 
    One route with an `op`, rather than a route per verb, because they all do the
-   same thing: check the caller is the gamemaster, mutate the session document,
+   same thing: check the caller runs this lobby, mutate the session document,
    hand back the new state for every dashboard to re-render from.
 
    ops:
-     setRank        { playerId, rank }   fix a rank someone got wrong
-     removePlayer   { playerId }         drop a no-show (never the gamemaster)
-     resetPasscode  { playerId }         forgotten passcode: they re-claim the name on next login
-     rerollSlot     { playerId, game, index }  one restriction, kept in place
-     clearGame      { game }             wipe a game's rolls and start over
-     setGame        { game }             which game the dashboard is showing
-     setOpen        { open }             open or close the lobby to new players
-     setPool        { off: [ids] }       which restrictions are in the draw
-     transferGm     { playerId }         hand the lobby to someone else
+     setRank        { playerId, rank }        fix a rank someone got wrong
+     removePlayer   { playerId }              drop a no-show (never the gamemaster)
+     rerollSlot     { playerId, game, index } one restriction, kept in place
+     setPlacements  { game, placements }      final standings: { playerId: 1..8 }
+     clearPlacements{ game }                  wipe a game's placements
+     clearGame      { game }                  wipe a game's rolls and placements
+     setGame        { game }                  which game the lobby is on
+     setOpen        { open }                  open or close the lobby to new players
+     setPool        { off: [ids] }            which restrictions are in the draw
+     transferGm     { playerId }              hand the lobby to someone else
+
+   A seat's rank is a copy of the account's, so setRank here changes what this
+   player is rolled for in this tournament without touching their account.
 */
 
 const lib = require('./_lib.js');
-const { rules, store, auth } = lib;
+const { rules, store } = lib;
+
+const MAX_SEATS = 8; // a TFT lobby; placements are 1..8
 
 module.exports = async function handler(req, res) {
   if (!lib.guard(req, res, 'POST')) return;
 
   const input = await lib.body(req);
   const code = lib.cleanCode(input.code);
-  if (!code) return lib.fail(res, 400, 'That session code is not valid.');
+  if (!code) return lib.fail(res, 400, 'That lobby code is not valid.');
 
   const found = await lib.requireGm(req, res, code);
   if (!found) return;
@@ -33,8 +39,8 @@ module.exports = async function handler(req, res) {
   const op = String(input.op || '');
   let error = null;
 
-  const session = await store.update(lib.key(code), (s) => {
-    if (!s) { error = 'No session with that code.'; return null; }
+  const session = await store.update(lib.sKey(code), (s) => {
+    if (!s) { error = 'No lobby with that code.'; return null; }
     const target = input.playerId ? s.players[String(input.playerId)] : null;
 
     switch (op) {
@@ -50,13 +56,7 @@ module.exports = async function handler(req, res) {
         if (target.id === me) { error = 'You cannot remove yourself. Hand the lobby over first.'; return null; }
         delete s.players[target.id];
         Object.values(s.rolls).forEach((game) => { delete game[target.id]; });
-        return s;
-      }
-
-      case 'resetPasscode': {
-        if (!target) { error = 'No such player in this lobby.'; return null; }
-        target.hash = null;
-        target.salt = null;
+        Object.values(s.results || {}).forEach((r) => { if (r && r.placements) delete r.placements[target.id]; });
         return s;
       }
 
@@ -77,9 +77,41 @@ module.exports = async function handler(req, res) {
         return s;
       }
 
+      /* Placements are the result of the game, so they are checked like one:
+         every entry has to name a player in this lobby, sit in 1..8, and be
+         unique. A lobby where two people came fourth is a typo, not a result. */
+      case 'setPlacements': {
+        const game = Number(input.game || s.game);
+        if (!Number.isInteger(game) || game < 1 || game > 9) { error = 'Game must be 1-9.'; return null; }
+        const raw = input.placements && typeof input.placements === 'object' ? input.placements : {};
+        const placements = {};
+        const used = new Set();
+
+        for (const [playerId, value] of Object.entries(raw)) {
+          if (value === '' || value === null || value === undefined) continue; // not entered yet
+          const place = Number(value);
+          if (!s.players[playerId]) { error = 'Placement for someone who is not in this lobby.'; return null; }
+          if (!Number.isInteger(place) || place < 1 || place > MAX_SEATS) { error = 'Placements must be 1-' + MAX_SEATS + '.'; return null; }
+          if (used.has(place)) { error = 'Two players cannot both be ' + place + '.'; return null; }
+          used.add(place);
+          placements[playerId] = place;
+        }
+
+        s.results = s.results || {};
+        s.results[game] = { placements, at: Date.now(), by: me };
+        return s;
+      }
+
+      case 'clearPlacements': {
+        const game = Number(input.game || s.game);
+        if (s.results) delete s.results[game];
+        return s;
+      }
+
       case 'clearGame': {
         const game = Number(input.game || s.game);
         delete s.rolls[game];
+        if (s.results) delete s.results[game];
         return s;
       }
 
@@ -122,7 +154,5 @@ module.exports = async function handler(req, res) {
   });
 
   if (error) return lib.fail(res, 400, error);
-  if (op === 'resetPasscode' && input.playerId) await auth.clearFailures(code, String(input.playerId));
-
   return lib.send(res, 200, { session: lib.publicSession(session, me) });
 };

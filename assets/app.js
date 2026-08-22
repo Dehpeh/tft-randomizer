@@ -4,8 +4,7 @@
   const T = window.TFT;
   const $ = (id) => document.getElementById(id);
 
-  const KEY = { theme: 'tft.theme', off: 'tft.pool.off', log: 'tft.log', rank: 'tft.rank' };
-  const THEMES = ['light', 'night-owl', 'amber', 'paper'];
+  const KEY = { off: 'tft.pool.off', log: 'tft.log', rank: 'tft.rank' };
 
   const state = {
     rankId: load(KEY.rank, 'challenger'),
@@ -360,20 +359,6 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  /* ---------- theme ---------- */
-  function cycleTheme() {
-    const now = document.documentElement.getAttribute('data-theme') || 'light';
-    const next = THEMES[(THEMES.indexOf(now) + 1) % THEMES.length];
-    document.documentElement.classList.add('theming');
-    if (next === 'light') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', next);
-    // Stored raw, not JSON: the boot script in index.html reads it before this
-    // file exists and hands it straight to setAttribute.
-    try { localStorage.setItem(KEY.theme, next); } catch (e) { /* private mode */ }
-    setTimeout(() => document.documentElement.classList.remove('theming'), 400);
-    toast(next.replace('-', ' '));
-  }
-
   /* ---------- reveal on scroll ---------- */
   function reveal() {
     const items = [...document.querySelectorAll('[data-reveal]')];
@@ -398,7 +383,6 @@
   $('againBtn').addEventListener('click', doRoll);
   $('copyBtn').addEventListener('click', () => state.result && copyText(resultText(state.result), 'Copied'));
   $('saveBtn').addEventListener('click', saveResult);
-  $('themeBtn').addEventListener('click', cycleTheme);
 
   $('majorList').addEventListener('click', togglePool);
   $('minorList').addEventListener('click', togglePool);
@@ -436,7 +420,6 @@
     const key = e.key.toLowerCase();
     if (key === 'r') { e.preventDefault(); doRoll(); }
     else if (key === 'c' && state.result) { copyText(resultText(state.result), 'Copied'); }
-    else if (key === 't') { cycleTheme(); }
     else if (key === 's') { saveResult(); }
     else {
       const link = document.querySelector(`.topbar__nav a[data-key="${key}"]`);

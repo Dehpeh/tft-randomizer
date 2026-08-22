@@ -1,24 +1,28 @@
-/* The session page: create/join a lobby, then the live dashboard.
+/* The lobby page: sign in, take a seat, then the live dashboard.
 
    State lives on the server. This file fetches it, draws it, and posts actions
-   back; it never decides anyone's restrictions. Updates arrive by polling every
-   few seconds — with a lobby of eight and a roll every twenty minutes, a socket
-   would be more machinery than the problem deserves. Polling pauses when the
-   tab is hidden and catches up the moment it comes back. */
+   back; it never decides anyone's restrictions or placements. Updates arrive by
+   polling every few seconds — with a lobby of eight and a roll every twenty
+   minutes, a socket would be more machinery than the problem deserves. Polling
+   pauses when the tab is hidden and catches up the moment it comes back. */
 (function () {
   const T = window.TFT;
   const $ = (id) => document.getElementById(id);
 
   const POLL_MS = 4000;
-  const THEMES = ['light', 'night-owl', 'amber', 'paper'];
+  const CODE_RE = /^[23456789CDFGHJKLMNPQRSTVWXZ]{6}$/;
+  const PLACES = 8;
 
   const view = {
     code: null,
+    account: null,
     session: null,
     game: 1,
     followGame: true,
     poolOpen: false,
-    lastSeed: null,   // your own roll, to know when to animate
+    authMode: 'login',
+    lastSeed: null,   // your own roll, so a new one animates
+    dirtyPlacements: null,
     timer: null,
   };
 
@@ -28,12 +32,17 @@
     const path = location.pathname.match(/^\/s\/([^/?#]+)/);
     const raw = path ? path[1] : new URLSearchParams(location.search).get('code');
     const code = String(raw || '').trim().toUpperCase();
-    return /^[23456789CDFGHJKLMNPQRSTVWXZ]{6}$/.test(code) ? code : null;
+    return CODE_RE.test(code) ? code : null;
   }
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const reduced = () => document.documentElement.classList.contains('motion-reduced');
   const rankName = (id) => (T.rankById(id) || { name: id || 'Unranked' }).name;
+  function ordinal(n) {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
 
   let toastTimer;
   function toast(msg) {
@@ -54,51 +63,110 @@
     return data;
   }
 
-  function showOnly(id) {
-    ['gate', 'gateForms', 'login', 'board'].forEach((s) => { $(s).hidden = s !== id; });
-    if (id === 'gate') { $('gate').hidden = false; $('gateForms').hidden = false; }
+  function showOnly(name) {
+    const screens = {
+      auth: ['auth'],
+      lobbies: ['gateHero', 'gateForms', 'myLobbies'],
+      join: ['joinGate'],
+      board: ['board'],
+    };
+    Object.values(screens).flat().forEach((id) => { $(id).hidden = true; });
+    (screens[name] || []).forEach((id) => { $(id).hidden = false; });
   }
 
   function fillRanks(select, selected) {
-    select.innerHTML = T.RANKS.map((r) => `<option value="${r.id}"${r.id === selected ? ' selected' : ''}>${r.name} — ${dist(r)}</option>`).join('');
-  }
-
-  function dist(r) {
-    const parts = [];
-    if (r.major) parts.push(r.major + ' major');
-    if (r.minor) parts.push(r.minor + ' minor');
-    return parts.join(' + ');
+    select.innerHTML = T.RANKS.map((r) => {
+      const parts = [];
+      if (r.major) parts.push(r.major + ' major');
+      if (r.minor) parts.push(r.minor + ' minor');
+      return `<option value="${r.id}"${r.id === selected ? ' selected' : ''}>${r.name} — ${parts.join(' + ')}</option>`;
+    }).join('');
   }
 
   /* ---------- boot ---------- */
 
-  fillRanks($('cRank'), 'diamond');
-  fillRanks($('lRank'), 'diamond');
-  $('themeBtn').addEventListener('click', cycleTheme);
-
+  fillRanks($('aRank'), 'diamond');
   view.code = codeFromUrl();
-  if (!view.code) {
-    showOnly('gate');
-  } else {
-    refresh(true).catch((err) => {
-      showOnly('gate');
-      toast(err.message);
-    });
+  start();
+
+  async function start() {
+    try {
+      const who = await api('auth');
+      view.account = who.account;
+    } catch (e) { view.account = null; }
+
+    if (!view.account) { showAuth(); return; }
+    if (!view.code) { showLobbies(); return; }
+    refresh(true).catch((err) => { toast(err.message); showLobbies(); });
   }
 
-  /* ---------- create / join ---------- */
+  /* ---------- auth ---------- */
+
+  function showAuth() {
+    stopPolling();
+    showOnly('auth');
+    setAuthMode(view.authMode);
+    $('aName').focus();
+  }
+
+  function setAuthMode(mode) {
+    view.authMode = mode;
+    $('authTabs').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    $('aRankField').hidden = mode !== 'register';
+    $('authSubmit').textContent = mode === 'register' ? 'Create my account' : 'Sign in';
+    $('authTitle').textContent = mode === 'register' ? 'Claim your name' : 'Your League name and passcode';
+    $('authHint').textContent = mode === 'register'
+      ? 'Your name is yours for the tournament. Pick a passcode you will remember: there is no email on file, so only an admin can reset it.'
+      : 'Same name and passcode you registered with.';
+    $('authError').hidden = true;
+  }
+
+  $('authTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-mode]');
+    if (btn) setAuthMode(btn.dataset.mode);
+  });
+
+  $('authForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('authError');
+    err.hidden = true;
+    const payload = { op: view.authMode, name: $('aName').value, passcode: $('aPass').value };
+    if (view.authMode === 'register') payload.rank = $('aRank').value;
+    try {
+      const out = await api('auth', payload);
+      view.account = out.account;
+      $('aPass').value = '';
+      if (view.code) await refresh(true); else showLobbies();
+    } catch (e2) {
+      err.textContent = e2.message;
+      err.hidden = false;
+    }
+  });
+
+  /* ---------- lobby list ---------- */
+
+  async function showLobbies() {
+    stopPolling();
+    showOnly('lobbies');
+    try {
+      const mine = await api('me');
+      const list = mine.lobbies || [];
+      $('myLobbies').hidden = !list.length;
+      $('lobbyList').innerHTML = list.map((l) => `
+        <a class="lobbyrow" href="/s/${esc(l.code)}">
+          <span class="lobbyrow__name">${esc(l.name)}</span>
+          <span class="lobbyrow__meta">${esc(l.code)} · ${l.players} player${l.players === 1 ? '' : 's'}${l.isGm ? ' · you run it' : ''}</span>
+          <span class="lobbyrow__go">&rarr;</span>
+        </a>`).join('');
+    } catch (e) { $('myLobbies').hidden = true; }
+  }
 
   $('createForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = $('createError');
     err.hidden = true;
     try {
-      const out = await api('create', {
-        sessionName: $('cSession').value,
-        name: $('cName').value,
-        rank: $('cRank').value,
-        passcode: $('cPass').value,
-      });
+      const out = await api('create', { sessionName: $('cSession').value });
       history.replaceState(null, '', '/s/' + out.code);
       view.code = out.code;
       await refresh(true);
@@ -112,29 +180,24 @@
   $('joinForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const code = $('jCode').value.trim().toUpperCase();
-    if (!/^[23456789CDFGHJKLMNPQRSTVWXZ]{6}$/.test(code)) {
+    if (!CODE_RE.test(code)) {
       const err = $('joinError');
-      err.textContent = 'Session codes are 6 characters, no vowels.';
+      err.textContent = 'Lobby codes are 6 characters, no vowels.';
       err.hidden = false;
       return;
     }
     location.href = '/s/' + code;
   });
 
-  $('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const err = $('loginError');
+  $('joinNow').addEventListener('click', async () => {
+    const err = $('joinGateError');
     err.hidden = true;
     try {
-      await api('join', {
-        code: view.code,
-        name: $('lName').value,
-        passcode: $('lPass').value,
-        rank: $('lRank').value,
-      });
+      await api('join', { code: view.code });
       await refresh(true);
-    } catch (e2) {
-      err.textContent = e2.message;
+      toast('Seated');
+    } catch (e) {
+      err.textContent = e.message;
       err.hidden = false;
     }
   });
@@ -143,10 +206,19 @@
 
   async function refresh(force) {
     const data = await api('state?code=' + view.code);
+    if (data.account) view.account = data.account;
 
-    if (data.needsAuth) {
+    if (data.needsLogin) { showAuth(); return; }
+
+    if (data.needsJoin) {
       stopPolling();
-      showLogin(data.preview);
+      showOnly('join');
+      $('joinName').textContent = data.preview.name;
+      $('joinMeta').textContent = `${data.preview.code} · ${data.preview.players} player${data.preview.players === 1 ? '' : 's'}`
+        + (data.preview.gm ? ` · gamemaster ${data.preview.gm}` : '')
+        + (data.preview.open ? '' : ' · closed to new players');
+      $('joinAs').textContent = `${view.account.display} (${rankName(view.account.rank)})`;
+      $('joinNow').disabled = !data.preview.open;
       return;
     }
 
@@ -175,21 +247,12 @@
     if (!document.hidden && view.session) refresh(false).catch(() => {});
   });
 
-  function showLogin(preview) {
-    showOnly('login');
-    $('lobbyName').textContent = preview.name;
-    $('lobbyMeta').textContent = `${preview.code} · ${preview.players} player${preview.players === 1 ? '' : 's'}`
-      + (preview.gm ? ` · gamemaster ${preview.gm}` : '')
-      + (preview.open ? '' : ' · closed to new players');
-    $('lName').focus();
-  }
-
   /* ---------- dashboard ---------- */
 
   function render() {
     const s = view.session;
     showOnly('board');
-    document.title = s.name + ' — TFT Session';
+    document.title = s.name + ' — TFT Lobby';
 
     $('boardName').textContent = s.name;
     $('boardCode').textContent = s.code;
@@ -200,19 +263,24 @@
     renderGames();
     renderMine();
     renderRoster();
+    renderStandings();
     if (s.isGm) renderGmPanel();
   }
+
+  const placementsFor = (game) => ((view.session.results || {})[game] || {}).placements || {};
 
   function renderGames() {
     const s = view.session;
     const games = new Set([1, 2, 3, s.game, view.game]);
     Object.keys(s.rolls).forEach((g) => games.add(Number(g)));
+    Object.keys(s.results || {}).forEach((g) => games.add(Number(g)));
     const list = [...games].filter((n) => n >= 1 && n <= 9).sort((a, b) => a - b);
 
     $('gameTabs').innerHTML = list.map((n) => {
       const rolled = Object.keys(s.rolls[n] || {}).length;
+      const done = Object.keys(placementsFor(n)).length;
       return `<button type="button" class="gametab" data-game="${n}" aria-pressed="${n === view.game}">
-        Game ${n}<span class="gametab__n">${rolled}/${s.players.length}</span>
+        Game ${n}<span class="gametab__n">${done ? done + ' placed' : rolled + '/' + s.players.length}</span>
       </button>`;
     }).join('') + (s.isGm && list.length < 9
       ? `<button type="button" class="gametab gametab--add" data-game="${Math.max(...list) + 1}">+ Game ${Math.max(...list) + 1}</button>`
@@ -222,25 +290,20 @@
   $('gameTabs').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-game]');
     if (!btn) return;
-    const game = Number(btn.dataset.game);
-    view.game = game;
+    view.game = Number(btn.dataset.game);
     view.followGame = false;
+    view.dirtyPlacements = null;
     render();
-    // The gamemaster switching game moves the whole lobby with them.
     if (view.session.isGm) {
-      try { await act('gm', { op: 'setGame', game }); view.followGame = true; } catch (err) { toast(err.message); }
+      try { await act('gm', { op: 'setGame', game: view.game }); view.followGame = true; } catch (err) { toast(err.message); }
     }
   });
-
-  function myRoll(game) {
-    const s = view.session;
-    return ((s.rolls[game] || {})[s.you]) || null;
-  }
 
   function renderMine() {
     const s = view.session;
     const me = s.players.find((p) => p.id === s.you);
-    const roll = myRoll(view.game);
+    const roll = (s.rolls[view.game] || {})[s.you] || null;
+    const place = placementsFor(view.game)[s.you] || null;
     const fresh = roll && roll.seed !== view.lastSeed;
 
     $('mine').innerHTML = `
@@ -249,6 +312,7 @@
         <div class="plate__bar">
           <span class="plate__who">${esc(me ? me.display : 'You')}</span>
           <span>${esc(rankName(me && me.rank))}${me && me.isGm ? ' · GAMEMASTER' : ''}</span>
+          ${place ? `<span class="place place--${place <= 4 ? 'top' : 'bot'}">${ordinal(place)}</span>` : ''}
           <span class="plate__seed">${roll ? 'SEED <b>' + esc(roll.seed) + '</b>' : ''}</span>
         </div>
         <div class="plate__body">
@@ -258,11 +322,12 @@
         </div>
       </div>`;
 
+    const slots = $('mine').querySelectorAll('.slot');
     if (roll && fresh) {
       view.lastSeed = roll.seed;
-      spin($('mine').querySelectorAll('.slot'), roll.picks);
+      spin(slots, roll.picks);
     } else if (roll) {
-      $('mine').querySelectorAll('.slot').forEach((slot, i) => land(slot, roll.picks[i]));
+      slots.forEach((slot, i) => land(slot, roll.picks[i]));
     }
   }
 
@@ -308,14 +373,16 @@
   function renderRoster() {
     const s = view.session;
     const rolls = s.rolls[view.game] || {};
+    const places = placementsFor(view.game);
 
     $('rosterGrid').innerHTML = s.players.map((p) => {
       const roll = rolls[p.id];
-      const mine = p.id === s.you;
-      return `<article class="pcard${mine ? ' pcard--me' : ''}">
+      const place = places[p.id];
+      return `<article class="pcard${p.id === s.you ? ' pcard--me' : ''}">
         <header class="pcard__head">
           <span class="pcard__name">${esc(p.display)}</span>
           <span class="pcard__tags">
+            ${place ? `<span class="place place--${place <= 4 ? 'top' : 'bot'}">${ordinal(place)}</span>` : ''}
             ${p.isGm ? '<span class="tag tag--gm">GM</span>' : ''}
             <span class="tag">${esc(rankName(p.rank))}</span>
           </span>
@@ -339,13 +406,56 @@
         ${T.RANKS.map((r) => `<option value="${r.id}"${r.id === p.rank ? ' selected' : ''}>${r.name}</option>`).join('')}
       </select>
       <button class="slot__reroll" type="button" data-op="roll-one" data-player="${esc(p.id)}">Roll</button>
-      ${p.hasPasscode ? `<button class="slot__reroll" type="button" data-op="resetPasscode" data-player="${esc(p.id)}">Reset code</button>` : '<span class="hint">passcode cleared</span>'}
       ${p.isGm ? '' : `<button class="slot__reroll" type="button" data-op="transferGm" data-player="${esc(p.id)}">Make GM</button>
       <button class="slot__reroll" type="button" data-op="removePlayer" data-player="${esc(p.id)}">Remove</button>`}
     </div>`;
   }
 
-  /* ---------- gamemaster actions ---------- */
+  /* ---------- standings ----------
+     Points are the usual TFT ladder: 1st is worth 8, 8th is worth 1. One line
+     to change if the tournament settles on something else. */
+  const pointsFor = (place) => (PLACES + 1) - place;
+
+  function renderStandings() {
+    const s = view.session;
+    const results = s.results || {};
+    const games = Object.keys(results).map(Number).sort((a, b) => a - b);
+
+    if (!games.length) {
+      $('standingsTable').innerHTML = '<div class="log__empty">No placements submitted yet.</div>';
+      return;
+    }
+
+    const rows = s.players.map((p) => {
+      const played = [];
+      games.forEach((g) => {
+        const place = (results[g].placements || {})[p.id];
+        if (place) played.push({ game: g, place });
+      });
+      const points = played.reduce((sum, r) => sum + pointsFor(r.place), 0);
+      const avg = played.length ? played.reduce((sum, r) => sum + r.place, 0) / played.length : null;
+      return { p, played, points, avg };
+    }).sort((a, b) => b.points - a.points || (a.avg || 9) - (b.avg || 9));
+
+    $('standingsTable').innerHTML = `
+      <div class="standings__head">
+        <span>/ #</span><span>/ PLAYER</span>${games.map((g) => `<span>/ G${g}</span>`).join('')}<span>/ AVG</span><span>/ PTS</span>
+      </div>
+      ${rows.map((row, i) => `
+        <div class="standings__row${row.p.id === s.you ? ' is-me' : ''}">
+          <span class="standings__rank">${i + 1}</span>
+          <span>${esc(row.p.display)}</span>
+          ${games.map((g) => {
+            const hit = row.played.find((r) => r.game === g);
+            return `<span class="standings__cell">${hit ? ordinal(hit.place) : '—'}</span>`;
+          }).join('')}
+          <span class="standings__cell">${row.avg ? row.avg.toFixed(2) : '—'}</span>
+          <span class="standings__pts">${row.points}</span>
+        </div>`).join('')}`;
+    $('standingsTable').style.setProperty('--games', games.length);
+  }
+
+  /* ---------- gamemaster ---------- */
 
   async function act(route, payload) {
     const data = await api(route, Object.assign({ code: view.code }, payload));
@@ -372,13 +482,9 @@
         await act('gm', { op, playerId, game: view.game, index: Number(btn.dataset.index) });
         toast('Slot rerolled');
       } else if (op === 'removePlayer') {
-        if (!confirm(`Remove ${who} from the lobby? Their rolls go with them.`)) return;
+        if (!confirm(`Remove ${who} from the lobby? Their rolls and placements go with them.`)) return;
         await act('gm', { op, playerId });
         toast(who + ' removed');
-      } else if (op === 'resetPasscode') {
-        if (!confirm(`Clear ${who}'s passcode? They pick a new one next time they sign in.`)) return;
-        await act('gm', { op, playerId });
-        toast('Passcode cleared');
       } else if (op === 'transferGm') {
         if (!confirm(`Hand the lobby to ${who}? You stop being gamemaster.`)) return;
         await act('gm', { op, playerId });
@@ -397,22 +503,18 @@
   });
 
   $('rollMissing').addEventListener('click', async () => {
-    try {
-      await act('roll', { game: view.game, target: 'missing' });
-      toast('Rolled game ' + view.game);
-    } catch (err) { toast(err.message); }
+    try { await act('roll', { game: view.game, target: 'missing' }); toast('Rolled game ' + view.game); }
+    catch (err) { toast(err.message); }
   });
 
   $('rollAll').addEventListener('click', async () => {
     if (!confirm(`Re-roll every player for game ${view.game}? Existing restrictions are replaced.`)) return;
-    try {
-      await act('roll', { game: view.game, target: 'all' });
-      toast('Whole lobby rerolled');
-    } catch (err) { toast(err.message); }
+    try { await act('roll', { game: view.game, target: 'all' }); toast('Whole lobby rerolled'); }
+    catch (err) { toast(err.message); }
   });
 
   $('clearGame').addEventListener('click', async () => {
-    if (!confirm(`Clear every roll for game ${view.game}?`)) return;
+    if (!confirm(`Clear every roll and placement for game ${view.game}?`)) return;
     try {
       await act('gm', { op: 'clearGame', game: view.game });
       view.lastSeed = null;
@@ -432,15 +534,28 @@
     $('poolPanel').hidden = !view.poolOpen;
   });
 
+  /* ---------- placements ---------- */
+
   function renderGmPanel() {
     const s = view.session;
     const off = new Set(s.pool.off || []);
     const rolled = Object.keys(s.rolls[view.game] || {}).length;
+    const places = view.dirtyPlacements || placementsFor(view.game);
 
     $('toggleOpen').textContent = s.open ? 'Close the lobby' : 'Reopen the lobby';
     $('gmHint').textContent = `Game ${view.game}: ${rolled} of ${s.players.length} rolled · `
       + `${T.ALL.length - off.size} of ${T.ALL.length} restrictions in the draw · `
       + `invite link ${location.origin}/s/${s.code}`;
+
+    $('resultsGame').textContent = view.game;
+    $('resultsGrid').innerHTML = s.players.map((p) => `
+      <label class="results__row">
+        <span class="results__name">${esc(p.display)}</span>
+        <select class="results__pick" data-player="${esc(p.id)}">
+          <option value="">—</option>
+          ${Array.from({ length: PLACES }, (_, i) => i + 1).map((n) => `<option value="${n}"${places[p.id] === n ? ' selected' : ''}>${ordinal(n)}</option>`).join('')}
+        </select>
+      </label>`).join('');
 
     const render = (list, mount) => {
       $(mount).innerHTML = list.map((r) => {
@@ -458,6 +573,58 @@
     $('poolPanel').hidden = !view.poolOpen;
   }
 
+  /* Held locally until submitted, so a poll landing mid-entry cannot wipe a
+     half-filled scoreboard. */
+  $('resultsGrid').addEventListener('change', () => {
+    const draft = {};
+    $('resultsGrid').querySelectorAll('select[data-player]').forEach((sel) => {
+      if (sel.value) draft[sel.dataset.player] = Number(sel.value);
+    });
+    view.dirtyPlacements = draft;
+  });
+
+  $('savePlacements').addEventListener('click', async () => {
+    const err = $('resultsError');
+    err.hidden = true;
+    const draft = view.dirtyPlacements || placementsFor(view.game);
+    const used = new Set();
+    for (const [, place] of Object.entries(draft)) {
+      if (used.has(place)) {
+        err.textContent = `Two players are both ${ordinal(place)}. Fix that first.`;
+        err.hidden = false;
+        return;
+      }
+      used.add(place);
+    }
+    try {
+      await act('gm', { op: 'setPlacements', game: view.game, placements: draft });
+      view.dirtyPlacements = null;
+      toast('Placements saved');
+    } catch (e) {
+      err.textContent = e.message;
+      err.hidden = false;
+    }
+  });
+
+  $('clearPlacements').addEventListener('click', async () => {
+    if (!confirm(`Clear the placements for game ${view.game}?`)) return;
+    try {
+      view.dirtyPlacements = null;
+      await act('gm', { op: 'clearPlacements', game: view.game });
+      toast('Placements cleared');
+    } catch (err) { toast(err.message); }
+  });
+
+  /* A starting point for typing, not a result: the roster order with 1st at the
+     top, so the gamemaster edits eight fields instead of filling eight. */
+  $('autoFill').addEventListener('click', () => {
+    const draft = {};
+    view.session.players.forEach((p, i) => { if (i < PLACES) draft[p.id] = i + 1; });
+    view.dirtyPlacements = draft;
+    renderGmPanel();
+    toast('Filled from lobby order — check it before submitting');
+  });
+
   function boxSvg(on) {
     return on
       ? '<svg class="pool__box" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="0.5" y="0.5" width="11" height="11" fill="none" stroke="currentColor"/><path d="M3 6.2 5.2 8.5 9 3.8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
@@ -469,12 +636,11 @@
     if (!btn) return;
     const off = new Set(view.session.pool.off || []);
     if (off.has(btn.dataset.id)) off.delete(btn.dataset.id); else off.add(btn.dataset.id);
-    try {
-      await act('gm', { op: 'setPool', off: [...off] });
-    } catch (err) { toast(err.message); }
+    try { await act('gm', { op: 'setPool', off: [...off] }); }
+    catch (err) { toast(err.message); }
   });
 
-  /* ---------- lobby chrome ---------- */
+  /* ---------- chrome ---------- */
 
   $('copyLink').addEventListener('click', () => {
     copyText(`${location.origin}/s/${view.code}`, 'Invite link copied');
@@ -483,10 +649,12 @@
   $('copyBoard').addEventListener('click', () => {
     const s = view.session;
     const rolls = s.rolls[view.game] || {};
+    const places = placementsFor(view.game);
     const lines = [`${s.name} — Game ${view.game}`, ''];
     s.players.forEach((p) => {
       const roll = rolls[p.id];
-      lines.push(`${p.display} (${rankName(p.rank)})`);
+      const place = places[p.id];
+      lines.push(`${p.display} (${rankName(p.rank)})${place ? ' — ' + ordinal(place) : ''}`);
       if (!roll) lines.push('  — not rolled yet');
       else {
         roll.picks.forEach((pick) => lines.push(`  [${pick.tier.toUpperCase()}] ${pick.text}`));
@@ -495,15 +663,6 @@
       lines.push('');
     });
     copyText(lines.join('\n').trim(), 'Lobby copied');
-  });
-
-  $('signOut').addEventListener('click', async () => {
-    try {
-      await api('logout', { code: view.code });
-      stopPolling();
-      view.session = null;
-      location.reload();
-    } catch (err) { toast(err.message); }
   });
 
   function copyText(text, msg) {
@@ -522,15 +681,5 @@
     ta.select();
     try { document.execCommand('copy'); done(); } catch (e) { toast('Copy failed'); }
     document.body.removeChild(ta);
-  }
-
-  function cycleTheme() {
-    const now = document.documentElement.getAttribute('data-theme') || 'light';
-    const next = THEMES[(THEMES.indexOf(now) + 1) % THEMES.length];
-    document.documentElement.classList.add('theming');
-    if (next === 'light') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem('tft.theme', next); } catch (e) { /* private mode */ }
-    setTimeout(() => document.documentElement.classList.remove('theming'), 400);
   }
 })();

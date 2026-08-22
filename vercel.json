@@ -3,12 +3,20 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/s/:code", "destination": "/session" }
+    {
+      "source": "/s/:code",
+      "destination": "/session"
+    }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
-      "headers": [{ "key": "cache-control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "no-store"
+        }
+      ]
     }
   ]
 }

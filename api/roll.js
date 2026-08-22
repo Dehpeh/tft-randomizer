@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
   const target = String(input.target || 'missing');
   let error = null;
 
-  const session = await store.update(lib.key(code), (s) => {
+  const session = await store.update(lib.sKey(code), (s) => {
     if (!s) { error = 'No session with that code.'; return null; }
 
     const enabled = rules.enabledSet(s.pool.off);

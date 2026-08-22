@@ -1,11 +1,12 @@
-/* Shared plumbing for the session routes: request/response helpers and the
-   shape of a session document. */
+/* Shared plumbing for the API: request/response helpers, and the shape of the
+   two documents this app stores — an account and a session. */
 
 const rules = require('../lib/restrictions.js');
 const auth = require('./_auth.js');
 const store = require('./_store.js');
 
-const key = (code) => 'tft:s:' + code;
+const sKey = (code) => 'tft:s:' + code;   // session (a lobby)
+const uKey = (id) => 'tft:u:' + id;       // account (a player)
 
 /* ---------- http ---------- */
 
@@ -31,9 +32,9 @@ async function body(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch (e) { return {}; }
 }
 
-/* A POST from another origin should not be able to drive a session with a
-   logged-in player's cookie. SameSite=Lax already blocks the common case; this
-   closes the rest. */
+/* A POST from another origin should not be able to drive a lobby with someone's
+   login cookie. SameSite=Lax already blocks the common case; this closes the
+   rest. */
 function sameOrigin(req) {
   const origin = req.headers.origin;
   if (!origin) return true; // curl, server-to-server, same-origin form posts
@@ -48,7 +49,27 @@ function guard(req, res, method) {
   return true;
 }
 
-/* ---------- session documents ---------- */
+/* ---------- accounts ---------- */
+
+function newAccount(id, display, rankId, passcode) {
+  const { salt, hash } = auth.hashPasscode(passcode);
+  return { id, display, rank: rankId, salt, hash, sessions: [], createdAt: Date.now(), v: 0 };
+}
+
+/* What a browser is allowed to see of an account: never the passcode material. */
+const publicAccount = (a) => ({
+  id: a.id, display: a.display, rank: a.rank, createdAt: a.createdAt, sessions: a.sessions || [],
+});
+
+/** The signed-in account, or null after answering 401. */
+async function requireAccount(req, res) {
+  const id = auth.whoami(req);
+  const account = id ? await store.get(uKey(id)) : null;
+  if (!account) { fail(res, 401, 'Sign in first.'); return null; }
+  return account;
+}
+
+/* ---------- sessions ---------- */
 
 const CODE_RE = /^[23456789CDFGHJKLMNPQRSTVWXZ]{6}$/;
 
@@ -65,29 +86,29 @@ function newSession(code, name) {
     game: 1,
     open: true,          // accepting new players
     pool: { off: [] },   // restriction ids the gamemaster switched off
-    players: {},         // id -> player
-    rolls: {},           // game number -> { playerId -> roll }
+    players: {},         // id -> seat
+    rolls: {},           // game -> { playerId -> roll }
+    results: {},         // game -> { placements: { playerId -> 1..8 }, at, by }
     v: 0,
   };
 }
 
-function newPlayer(id, display, rankId, passcode, isGm) {
-  const { salt, hash } = auth.hashPasscode(passcode);
-  return { id, display, rank: rankId, salt, hash, isGm: Boolean(isGm), joinedAt: Date.now() };
-}
+/* A seat is the account's standing in one lobby. Rank is copied in rather than
+   read live, so a gamemaster correcting someone's rank for this tournament does
+   not rewrite their account, and a player editing their account later cannot
+   change what they were rolled against. */
+const newSeat = (account, isGm) => ({
+  id: account.id,
+  display: account.display,
+  rank: account.rank,
+  isGm: Boolean(isGm),
+  joinedAt: Date.now(),
+});
 
-/* What a browser is allowed to see: everything except the passcode material. */
 function publicSession(session, viewerId) {
   const players = Object.values(session.players)
     .sort((a, b) => (b.isGm ? 1 : 0) - (a.isGm ? 1 : 0) || a.joinedAt - b.joinedAt)
-    .map((p) => ({
-      id: p.id,
-      display: p.display,
-      rank: p.rank,
-      isGm: p.isGm,
-      joinedAt: p.joinedAt,
-      hasPasscode: Boolean(p.hash),
-    }));
+    .map((p) => ({ id: p.id, display: p.display, rank: p.rank, isGm: p.isGm, joinedAt: p.joinedAt }));
 
   return {
     code: session.code,
@@ -99,21 +120,23 @@ function publicSession(session, viewerId) {
     v: session.v,
     players,
     rolls: session.rolls,
+    results: session.results || {},
     you: viewerId || null,
     isGm: Boolean(viewerId && session.players[viewerId] && session.players[viewerId].isGm),
   };
 }
 
-/** Load a session and confirm the caller is a member of it. */
+/** Signed in AND holding a seat in this lobby. */
 async function requireMember(req, res, code) {
-  const session = await store.get(key(code));
-  if (!session) { fail(res, 404, 'No session with that code.'); return null; }
-  const playerId = auth.whoami(req, code);
-  if (!playerId || !session.players[playerId]) { fail(res, 401, 'Sign in to this session first.'); return null; }
-  return { session, playerId };
+  const account = await requireAccount(req, res);
+  if (!account) return null;
+  const session = await store.get(sKey(code));
+  if (!session) { fail(res, 404, 'No lobby with that code.'); return null; }
+  if (!session.players[account.id]) { fail(res, 403, 'You have not joined this lobby.'); return null; }
+  return { session, account, playerId: account.id };
 }
 
-/** ...and that they are the gamemaster. */
+/** ...and the gamemaster of it. */
 async function requireGm(req, res, code) {
   const found = await requireMember(req, res, code);
   if (!found) return null;
@@ -121,10 +144,23 @@ async function requireGm(req, res, code) {
   return found;
 }
 
+/* Remember which lobbies an account has played, so the profile page can find
+   them without scanning every key in the database. */
+async function rememberSession(accountId, code) {
+  await store.update(uKey(accountId), (a) => {
+    if (!a) return null;
+    const list = a.sessions || [];
+    if (list.includes(code)) return null;
+    a.sessions = [code].concat(list).slice(0, 100);
+    return a;
+  });
+}
+
 const validRank = (id) => Boolean(rules.rankById(id));
 
 module.exports = {
-  key, send, fail, body, guard, cleanCode,
-  newSession, newPlayer, publicSession,
-  requireMember, requireGm, validRank, rules, store, auth,
+  sKey, uKey, send, fail, body, guard, cleanCode,
+  newAccount, publicAccount, requireAccount,
+  newSession, newSeat, publicSession, requireMember, requireGm, rememberSession,
+  validRank, rules, store, auth,
 };

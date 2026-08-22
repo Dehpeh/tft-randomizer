@@ -1,23 +1,22 @@
-/* Identity for a session: a League name plus a 6-digit passcode.
+/* Accounts: a League name plus a 6-digit passcode.
 
    Be clear-eyed about what that is. Six digits is a million combinations, which
-   is fine for keeping a friend from opening your restrictions and useless
-   against anyone determined. So it is treated as what it is — a party lock, not
-   a password — and propped up accordingly:
+   is fine for keeping a friend out of your match history and useless against
+   anyone determined. So it is treated as what it is — a party lock, not a
+   password — and propped up accordingly:
 
-     - passcodes are scrypt-hashed with a per-player salt, never stored raw
-     - failed attempts are counted per session+name and lock out for 15 minutes
-     - the session code itself is unguessable, so you need it before you can
-       even start guessing a passcode
-     - nothing here is worth stealing: a restriction list and a rank
+     - passcodes are scrypt-hashed with a per-account salt, never stored raw
+     - failed attempts are counted per name and lock out for 15 minutes
+     - the login cookie is HMAC-signed, HttpOnly and SameSite=Lax
+     - nothing here is worth stealing: restriction lists, ranks and placements
 
    Do not reuse this pattern for anything that matters. */
 
 const crypto = require('crypto');
 const store = require('./_store.js');
 
-const COOKIE_PREFIX = 'tft_';
-const MAX_AGE = 60 * 60 * 24 * 30; // a month, so nobody re-logs in mid-tournament
+const COOKIE = 'tft_id';
+const MAX_AGE = 60 * 60 * 24 * 60; // two months, so nobody re-logs in mid-tournament
 const MAX_ATTEMPTS = 8;
 const LOCKOUT_SECONDS = 15 * 60;
 
@@ -45,6 +44,7 @@ function hashPasscode(passcode, salt) {
 }
 
 function checkPasscode(passcode, salt, hash) {
+  if (!salt || !hash) return false;
   const got = Buffer.from(crypto.scryptSync(String(passcode), salt, 32).toString('hex'));
   const want = Buffer.from(String(hash));
   return got.length === want.length && crypto.timingSafeEqual(got, want);
@@ -52,27 +52,21 @@ function checkPasscode(passcode, salt, hash) {
 
 /* ---------- throttling ---------- */
 
-const attemptKey = (code, playerId) => `tft:fail:${code}:${playerId}`;
+const attemptKey = (id) => 'tft:fail:' + id;
 
-async function tooManyAttempts(code, playerId) {
-  const row = await store.get(attemptKey(code, playerId));
+async function tooManyAttempts(id) {
+  const row = await store.get(attemptKey(id));
   if (!row) return false;
   const n = typeof row === 'number' ? row : row.n;
   return n >= MAX_ATTEMPTS;
 }
 
-async function noteFailure(code, playerId) {
-  return store.bump(attemptKey(code, playerId), LOCKOUT_SECONDS);
-}
-
-async function clearFailures(code, playerId) {
-  return store.bumpReset(attemptKey(code, playerId));
-}
+const noteFailure = (id) => store.bump(attemptKey(id), LOCKOUT_SECONDS);
+const clearFailures = (id) => store.bumpReset(attemptKey(id));
 
 /* ---------- signed cookie ----------
    Same shape as the one on dehpeh.dev: a value the server can verify but a
-   browser cannot forge. One cookie per session code, so a gamemaster can hold
-   a tab open on two lobbies without knocking themselves out of either. */
+   browser cannot forge. Login + expiry + an HMAC over both. */
 
 function secret() {
   const s = process.env.SESSION_SECRET;
@@ -80,33 +74,30 @@ function secret() {
   if (process.env.VERCEL) {
     throw new Error('SESSION_SECRET is missing or too short (needs 24+ characters)');
   }
-  // Local development: a stable per-machine secret so restarts do not log you
-  // out. Never reached on a deployment, where the check above throws instead.
+  // Local development: a stable per-process secret. Never reached on a
+  // deployment, where the check above throws instead.
   if (!global.__tftDevSecret) global.__tftDevSecret = crypto.randomBytes(32).toString('hex');
   return global.__tftDevSecret;
 }
 
 const sign = (value) => crypto.createHmac('sha256', secret()).update(value).digest('base64url');
 
-function makeToken(code, playerId) {
-  const body = `${code}.${playerId}.${Math.floor(Date.now() / 1000) + MAX_AGE}`;
+function makeToken(accountId) {
+  const body = `${accountId}.${Math.floor(Date.now() / 1000) + MAX_AGE}`;
   return `${body}.${sign(body)}`;
 }
 
 function readToken(token) {
   if (!token) return null;
   const parts = String(token).split('.');
-  if (parts.length !== 4) return null;
-  const body = parts.slice(0, 3).join('.');
-  const expected = sign(body);
-  const a = Buffer.from(parts[3]);
-  const b = Buffer.from(expected);
+  if (parts.length !== 3) return null;
+  const body = parts[0] + '.' + parts[1];
+  const a = Buffer.from(parts[2]);
+  const b = Buffer.from(sign(body));
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  if (Number(parts[2]) < Math.floor(Date.now() / 1000)) return null;
-  return { code: parts[0], playerId: parts[1] };
+  if (Number(parts[1]) < Math.floor(Date.now() / 1000)) return null;
+  return parts[0];
 }
-
-function cookieName(code) { return COOKIE_PREFIX + code; }
 
 function readCookie(req, name) {
   const raw = req.headers.cookie || '';
@@ -118,45 +109,27 @@ function readCookie(req, name) {
   return null;
 }
 
-function isSecure(req) {
-  return (req.headers['x-forwarded-proto'] || '').split(',')[0] === 'https';
-}
+const isSecure = (req) => (req.headers['x-forwarded-proto'] || '').split(',')[0] === 'https';
 
-function setSessionCookie(req, res, code, playerId) {
-  const bits = [
-    `${cookieName(code)}=${makeToken(code, playerId)}`,
-    'Path=/',
-    'HttpOnly',
-    'SameSite=Lax',
-    `Max-Age=${MAX_AGE}`,
-  ];
+function setLoginCookie(req, res, accountId) {
+  const bits = [`${COOKIE}=${makeToken(accountId)}`, 'Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${MAX_AGE}`];
   if (isSecure(req)) bits.push('Secure');
-  appendCookie(res, bits.join('; '));
+  res.setHeader('Set-Cookie', bits.join('; '));
 }
 
-function clearSessionCookie(req, res, code) {
-  const bits = [`${cookieName(code)}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
+function clearLoginCookie(req, res) {
+  const bits = [`${COOKIE}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
   if (isSecure(req)) bits.push('Secure');
-  appendCookie(res, bits.join('; '));
+  res.setHeader('Set-Cookie', bits.join('; '));
 }
 
-function appendCookie(res, value) {
-  const prev = res.getHeader('Set-Cookie');
-  if (!prev) res.setHeader('Set-Cookie', value);
-  else res.setHeader('Set-Cookie', Array.isArray(prev) ? prev.concat(value) : [prev, value]);
-}
-
-/** Who is calling, for this session code? Null if not signed in. */
-function whoami(req, code) {
-  const parsed = readToken(readCookie(req, cookieName(code)));
-  if (!parsed || parsed.code !== code) return null;
-  return parsed.playerId;
-}
+/** Which account is calling? Null if signed out. */
+const whoami = (req) => readToken(readCookie(req, COOKIE));
 
 module.exports = {
   normalizeName, validName, validPasscode,
   hashPasscode, checkPasscode,
   tooManyAttempts, noteFailure, clearFailures,
-  setSessionCookie, clearSessionCookie, whoami,
+  setLoginCookie, clearLoginCookie, whoami,
   MAX_ATTEMPTS, LOCKOUT_SECONDS,
 };

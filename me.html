@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Matches — TFT</title>
+<meta name="description" content="Your account, your matches, and what each restriction actually costs you.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/styles.css">
+<script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('tft.theme');if(t&&t!=='light')document.documentElement.setAttribute('data-theme',t);if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('motion-reduced');}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23011627'/><rect x='3' y='3' width='10' height='4' fill='%23F0C078'/><rect x='3' y='9' width='4' height='4' fill='%23EF5350'/><rect x='9' y='9' width='4' height='4' fill='%2375D1C4'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar__flag" href="/" aria-label="Home">
+    <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
+  </a>
+  <nav class="topbar__nav" aria-label="Primary">
+    <a href="/session"><span class="key">[G]</span> <span class="lbl">LOBBIES</span></a>
+    <a href="/roller"><span class="key">[R]</span> <span class="lbl">SOLO ROLLER</span></a>
+  </nav>
+  <span id="navAccount"></span>
+  <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
+</header>
+
+<main id="top">
+
+  <!-- ============ SIGN IN ============ -->
+  <section class="gate" id="auth" hidden>
+    <div class="gate__grid gate__grid--one">
+      <div class="gate__card">
+        <div class="section-label">/ SIGN IN</div>
+        <h1 class="gate__title" id="authTitle">Your League name and passcode</h1>
+        <p class="gate__blurb">One account for the whole tournament: it carries your rank, your restrictions and your results.</p>
+
+        <div class="seg" id="authTabs" role="group" aria-label="Sign in or register">
+          <button type="button" data-mode="login" aria-pressed="true">Sign in</button>
+          <button type="button" data-mode="register" aria-pressed="false">First time</button>
+        </div>
+
+        <form id="authForm" autocomplete="off">
+          <div class="field">
+            <label for="aName">/ League name</label>
+            <input id="aName" type="text" placeholder="Name#TAG" maxlength="32" required>
+          </div>
+          <div class="field">
+            <label for="aPass">/ 6-digit passcode</label>
+            <input id="aPass" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          </div>
+          <div class="field" id="aRankField" hidden>
+            <label for="aRank">/ Peak rank</label>
+            <select id="aRank"></select>
+          </div>
+          <button class="btn btn--pill btn--accent" type="submit" id="authSubmit">Sign in</button>
+        </form>
+        <p class="hint" id="authHint">Pick something you will remember. There is no email on file, so only an admin can reset it.</p>
+        <p class="notice" id="authError" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PROFILE ============ -->
+  <div id="profile" hidden>
+    <section class="hero hero--tight">
+      <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
+      <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
+      <h1 class="hero__title" id="meName">You</h1>
+      <p class="hero__sub" id="meSub">&nbsp;</p>
+      <div class="me__actions">
+        <select class="pcard__rank" id="meRank" aria-label="Peak rank"></select>
+        <button class="btn" id="signOut">Sign out</button>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="section-label">/ RECORD</div>
+      <div class="stats__grid" id="statTiles"></div>
+      <p class="hint" id="statNote" style="margin-top:1rem"></p>
+    </section>
+
+    <section class="roster">
+      <div class="section-label">/ RESTRICTIONS, BY HOW THEY TREATED YOU</div>
+      <div class="rest__table" id="restTable"></div>
+      <p class="hint" style="margin-top:1rem">Average placement in the games you carried each one. Tiny samples early on &mdash; the game count is there so you can tell.</p>
+    </section>
+
+    <section class="log">
+      <div class="log__head-row">
+        <h2 class="title">Matches <span class="count" id="matchCount"></span></h2>
+      </div>
+      <div class="matches" id="matchList"></div>
+    </section>
+
+    <section class="gate">
+      <div class="section-label">/ YOUR LOBBIES</div>
+      <div class="lobbylist" id="lobbyList"></div>
+    </section>
+
+    <footer class="footer">
+      <div class="foot">
+        <span>TFT TOURNAMENT &middot; YOUR RECORD</span>
+        <span><a href="/session">LOBBIES</a></span>
+      </div>
+    </footer>
+  </div>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/lib/restrictions.js"></script>
+<script src="/assets/nav.js"></script>
+<script src="/assets/me.js"></script>
+</body>
+</html>

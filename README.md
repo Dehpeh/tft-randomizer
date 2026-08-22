@@ -1,14 +1,15 @@
 # TFT Restriction Randomizer
 
 Rolls a player's major/minor restrictions before their game, per the tournament
-doc. Two ways in:
+doc, then keeps the results.
 
-- **Sessions** (`/session`) — a gamemaster opens a lobby, players sign in with
-  their League name and a 6-digit passcode, the gamemaster rolls for everyone,
-  and one live dashboard shows every player's restrictions.
-- **Solo roller** (`/`) — the same engine with no account and no server, rolling
-  in your browser. For playtesting restrictions in customs, or running a lobby
-  by reading results out loud.
+| Page | What it is |
+| --- | --- |
+| `/` | Landing: where to go |
+| `/session` | Lobbies — open one as gamemaster, or join with a code |
+| `/s/CODE` | One lobby's live dashboard |
+| `/me` | Your account: matches, placements, and what each restriction costs you |
+| `/roller` | Solo roller — same engine, no account, nothing saved server-side |
 
 Static HTML/CSS/JS plus a handful of serverless functions. No build step, no
 framework, no dependencies — same design language as
@@ -21,57 +22,80 @@ node tft-randomizer/server.mjs
 ```
 
 <http://localhost:4700>. The dev server serves the static files and runs the
-functions in `api/` on the same origin, so sessions work end to end with no
-cloud account — state goes to a JSON file in your home directory. That is fine
-for development and for running a tournament off one machine.
+functions in `api/` on the same origin, so accounts, lobbies and placements all
+work end to end with no cloud account — state goes to a JSON file in your home
+directory. Fine for development and for running a tournament off one machine.
 
 ## Deploy it (Vercel + Upstash Redis)
 
 1. Import the repo on Vercel. No build command, no framework preset — it is a
    static site with functions.
-2. In the project, **Storage → Create Database**, pick **Upstash for Redis** from
-   the provider list (searching `upstash` finds it), and connect it to the
-   project. That sets the REST url and token for you. Depending on which screen
-   you came in through they arrive as either `UPSTASH_REDIS_REST_URL` /
-   `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` / `KV_REST_API_TOKEN`;
-   `api/_store.js` accepts either pair.
-3. Add one more environment variable, `SESSION_SECRET` — 24+ random characters.
-   It signs the login cookies; changing it later signs everyone out.
+2. **Storage → Create Database → Upstash for Redis**, connect it to the project.
+   That sets the REST url and token. Whether they arrive as
+   `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` /
+   `KV_REST_API_TOKEN`, `api/_store.js` accepts either pair.
+3. Add `SESSION_SECRET` — 24+ random characters. It signs the login cookies;
+   changing it later signs everyone out.
+4. Optionally add `ADMIN_KEY` — another long random string. It enables the two
+   things nobody else can do: resetting a forgotten passcode, and wiping
+   everything before the tournament starts. Leave it unset and `/api/admin`
+   stays disabled entirely.
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Deploy. Session links look like `https://your-domain/s/PLM73D`.
+Both required variables are checked rather than assumed: on Vercel, a missing
+`SESSION_SECRET` and a missing Redis each throw with a message saying which one,
+instead of falling back to a per-instance file that serverless functions do not
+share and letting sessions appear to vanish at random.
 
 **Do not move the client scripts back to the repo root.** Vercel's zero-config
 build treats a root-level `app.js` (or `server.js`, `index.js`) as a Node server
-entrypoint and puts it in front of everything as a catch-all function — which
-means browser code gets invoked as a server, crashes on boot, and every single
-path returns `FUNCTION_INVOCATION_FAILED`, static files included. That is why
-the client lives in `assets/`, the shared engine in `lib/`, and `server.mjs` is
-listed in `.vercelignore`.
+entrypoint and puts it in front of everything as a catch-all function — browser
+code gets invoked as a server, crashes on boot, and every path returns
+`FUNCTION_INVOCATION_FAILED`, static files included. That is why the client lives
+in `assets/`, the shared engine in `lib/`, and `server.mjs` is in `.vercelignore`.
 
-Both are checked rather than assumed: on Vercel, a missing `SESSION_SECRET` and
-a missing Redis each throw with a message saying which one, instead of falling
-back to a per-instance file that serverless functions do not share and letting
-sessions appear to vanish at random.
+## Accounts
+
+One account per League name, first come first served, with a 6-digit passcode.
+The account carries your display name, your peak rank, and every lobby you have
+played. Registering claims the name; after that the same name needs the same
+passcode.
+
+A seat in a lobby copies your rank rather than reading it live, so a gamemaster
+correcting your rank for this tournament does not rewrite your account, and
+editing your account later cannot change what you were already rolled against.
+
+### About the 6-digit passcode
+
+Six digits is a million combinations — enough to stop a friend opening your
+match history, not enough to stop anyone determined. It is treated as what it is:
+
+- passcodes are scrypt-hashed with a per-account salt, never stored raw
+- eight wrong attempts locks that name out for 15 minutes
+- login cookies are HttpOnly, SameSite=Lax and HMAC-signed
+- POSTs check the Origin header
+- there is no password reset without `ADMIN_KEY`, because there is no email
+
+Do not reuse this pattern for anything that matters. Here the worst case is
+someone learning which trait you are banned from playing.
 
 ## How a tournament night runs
 
-1. Gamemaster opens `/session`, fills in the lobby name, their own name, rank
-   and a passcode, and gets a link.
-2. Players open the link, enter their League name, a 6-digit passcode of their
-   own, and their **peak rank**. That name and passcode are theirs in that lobby
-   from then on; the gamemaster can correct a rank or clear a forgotten passcode
-   from the roster.
-3. Gamemaster picks the game tab and hits **Roll everyone without restrictions**.
-   Every dashboard in the lobby shows the results within a few seconds — your
-   own restrictions flicker in at the top, everyone else's fill the roster.
-4. Late joiner? Roll again: `missing` only touches players with nothing yet.
-   Restriction impossible in that lobby? **Reroll** that one slot. Whole game
-   gone wrong? **Clear this game** and start it over.
-5. **Copy for Discord** dumps the current game as plain text.
+1. Everyone registers at `/me` (or on the way into a lobby) with their League
+   name, a 6-digit passcode, and their **peak rank**.
+2. Gamemaster opens a lobby at `/session` and shares the `/s/CODE` link.
+3. Players click it and take a seat. The gamemaster can correct any rank from
+   the roster.
+4. Gamemaster picks the game tab and hits **Roll everyone without restrictions**.
+   Every dashboard shows the results within a few seconds — your own
+   restrictions flicker in at the top, everyone else's fill the roster.
+5. Play. Late joiner? Roll again: `missing` only touches players with nothing
+   yet. Restriction impossible in that lobby? **Reroll** that one slot.
+6. Afterwards the gamemaster enters **placements** — 1st through 8th, each place
+   usable once — and submits. Standings and everyone's stats update from there.
 
 Games 1-3 exist by default and the gamemaster can add more.
 
@@ -104,33 +128,47 @@ That tag is the only knob the rule needs: if you decide "no 3-star allowed" and
 pool reproduces it exactly — an umpire can check any disputed roll after the
 fact, and the solo roller has a seed field to do it with.
 
-**Pool editor.** Any restriction can be taken out of the draw: per-browser in
-the solo roller, per-lobby for a gamemaster. Playtesters switch off whatever
-turns out to be unworkable. The server refuses to go below 2 major and 3 minor,
-since Challenger and Diamond could not be rolled otherwise.
+**Pool editor.** Any restriction can be taken out of the draw: per-browser in the
+solo roller, per-lobby for a gamemaster. The server refuses to go below 2 major
+and 3 minor, since Challenger and Diamond could not be rolled otherwise.
 
-**The server rolls.** A player's browser never decides its own restrictions and
-cannot claim a rank it was not given. Rank, pool and rolls all live in the
-session document.
+**Placements and standings.** Placements are validated like a result, not a
+form: every entry names a player in that lobby, sits in 1-8, and is unique — a
+lobby where two people came fourth is a typo. Standings score 1st = 8 points
+down to 8th = 1 point (`pointsFor` in `assets/session.js`, one line to change).
 
-## About the 6-digit passcode
+**Stats.** `/me` shows games played, average placement, firsts, top-4 rate, best
+and worst, your full match history with what you were carrying, and every
+restriction ranked by your average placement while carrying it. All computed
+server-side from the same documents the gamemaster sees.
 
-Six digits is a million combinations — enough to stop a friend opening your
-restrictions, not enough to stop anyone determined. It is treated as what it is:
+**The server rolls.** A player's browser never decides its own restrictions,
+cannot claim a rank it was not given, and cannot submit its own placement.
 
-- passcodes are scrypt-hashed with a per-player salt, never stored raw
-- eight wrong attempts locks that name out of that lobby for 15 minutes
-- the session code is unguessable, so you need it before you can start guessing
-- session cookies are HttpOnly, SameSite=Lax, HMAC-signed, and scoped to one
-  lobby, and POSTs check the Origin header
+## Admin: resets
 
-Do not reuse this pattern for anything that matters. Here the worst case is that
-someone learns which trait you are banned from playing.
+Both need `ADMIN_KEY` set, and both are meant to be run from a terminal.
 
-## Keyboard (solo roller)
+Wipe everything before the tournament starts — every account, every lobby:
 
-`R` roll · `C` copy last result · `S` save to log · `T` cycle theme ·
-`K` / `P` / `L` jump to ranks, pool, log.
+```bash
+curl -X POST https://your-domain/api/admin -H 'content-type: application/json' -d '{"key":"YOUR_ADMIN_KEY","op":"wipe","confirm":"WIPE"}'
+```
+
+Give someone a new passcode when they forget theirs:
+
+```bash
+curl -X POST https://your-domain/api/admin -H 'content-type: application/json' -d '{"key":"YOUR_ADMIN_KEY","op":"resetPasscode","name":"Their#NAME","passcode":"123456"}'
+```
+
+`{"op":"deleteAccount","name":"..."}` removes one account. Keep `ADMIN_KEY` off
+Discord: it is the only thing standing between a curl command and the whole
+database.
+
+## Keyboard
+
+`T` cycles the theme anywhere. On the solo roller: `R` roll, `C` copy last
+result, `S` save to log, `P` / `L` jump to pool and log.
 
 ## Editing the restrictions
 
@@ -149,16 +187,22 @@ are the `RANKS` array in the same file.
 
 | File | What it holds |
 | --- | --- |
-| `index.html`, `assets/app.js` | Solo roller |
-| `session.html`, `assets/session.js` | Lobby: create, join, dashboard |
+| `index.html` | Landing page |
+| `roller.html`, `assets/app.js` | Solo roller |
+| `session.html`, `assets/session.js` | Lobbies: sign in, seat, dashboard, placements, standings |
+| `me.html`, `assets/me.js` | Account, match history, stats |
+| `assets/nav.js` | Theme switch and account chip, shared by every page |
 | `lib/restrictions.js` | Restriction pool, rank table, seeded roll engine (browser + server) |
 | `assets/styles.css` | Design tokens and components, lifted from dehpeh.dev |
+| `api/auth.js` | Register, sign in, sign out, set your own rank |
 | `api/create.js` | Open a lobby, become its gamemaster |
-| `api/join.js` | Claim a name with a passcode, or sign back in |
+| `api/join.js` | Take a seat |
 | `api/state.js` | What the dashboard polls |
 | `api/roll.js` | Gamemaster rolls: everyone, only the unrolled, or one player |
-| `api/gm.js` | Ranks, rerolls, pool, removals, handing over the lobby |
+| `api/gm.js` | Ranks, rerolls, placements, pool, removals, handing over the lobby |
+| `api/me.js` | Your matches and the numbers derived from them |
+| `api/admin.js` | Passcode resets and the pre-tournament wipe (needs `ADMIN_KEY`) |
 | `api/_store.js` | Upstash Redis, or a local JSON file when it is absent |
 | `api/_auth.js` | Passcode hashing, lockouts, signed cookies |
-| `api/_lib.js` | Request helpers and the session document shape |
+| `api/_lib.js` | Request helpers and the shape of an account and a lobby |
 | `server.mjs` | Local stand-in for Vercel: static files + `api/` on one origin |

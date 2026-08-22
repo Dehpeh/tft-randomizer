@@ -169,4 +169,28 @@ async function bumpReset(key) {
   await del(key);
 }
 
-module.exports = { get, setIfAbsent, del, update, bump, bumpReset, isRemote: () => remote };
+/* Delete every key under a prefix. Only the admin wipe calls this; SCAN rather
+   than KEYS so a big database cannot block Redis while it runs. */
+async function wipe(prefix) {
+  let deleted = 0;
+  if (remote) {
+    let cursor = '0';
+    do {
+      const [next, keys] = await command(['SCAN', cursor, 'MATCH', prefix + '*', 'COUNT', '200']);
+      cursor = String(next);
+      if (keys && keys.length) {
+        await command(['DEL'].concat(keys));
+        deleted += keys.length;
+      }
+    } while (cursor !== '0');
+    return deleted;
+  }
+  const data = readFile();
+  for (const key of Object.keys(data)) {
+    if (key.startsWith(prefix)) { delete data[key]; deleted++; }
+  }
+  writeFile(data);
+  return deleted;
+}
+
+module.exports = { get, setIfAbsent, del, update, bump, bumpReset, wipe, isRemote: () => remote };

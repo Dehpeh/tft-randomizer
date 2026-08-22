@@ -15,22 +15,20 @@
 <body>
 
 <header class="topbar">
-  <a class="topbar__flag" href="#top" aria-label="Top">
+  <a class="topbar__flag" href="/" aria-label="Home">
     <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
   </a>
   <nav class="topbar__nav" aria-label="Primary">
-    <a href="#roll" data-key="r"><span class="key">[R]</span> <span class="lbl">ROLL</span></a>
-    <a href="#ranks" data-key="k"><span class="key">[K]</span> <span class="lbl">RANKS</span></a>
-    <a href="#pool" data-key="p"><span class="key">[P]</span> <span class="lbl">POOL</span></a>
-    <a href="#log" data-key="l"><span class="key">[L]</span> <span class="lbl">LOG</span></a>
-    <a href="/session"><span class="key">[G]</span> <span class="lbl">SESSIONS</span></a>
+    <a href="/session"><span class="key">[G]</span> <span class="lbl">LOBBIES</span></a>
+    <a href="/roller"><span class="key">[R]</span> <span class="lbl">SOLO ROLLER</span></a>
+    <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
   </nav>
+  <span id="navAccount"></span>
   <button class="topbar__btn" id="themeBtn"><span class="key">[T]</span> <span class="lbl">THEME</span></button>
 </header>
 
 <main id="top">
 
-  <!-- ============ HERO ============ -->
   <section class="hero">
     <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
     <span class="plus" style="top:1.5rem;left:62%;--d:0.4s">+</span>
@@ -53,128 +51,36 @@
     </div>
 
     <h1 class="hero__title">Restriction <em>Randomizer</em></h1>
-    <p class="hero__sub">Roll a player&rsquo;s handicaps before their game. Rank sets the count, the pool sets the pain, and every roll is seeded so it can be checked afterwards.</p>
+    <p class="hero__sub">Rank sets how many handicaps you carry. The gamemaster rolls them, the lobby sees them, and every result is seeded so it can be checked afterwards.</p>
   </section>
 
-  <!-- ============ SESSIONS ============ -->
   <section class="gate">
-    <div class="gate__grid">
+    <div class="gate__grid gate__grid--three">
       <div class="gate__card">
-        <div class="section-label">/ RUNNING THE TOURNAMENT</div>
-        <p class="gate__blurb">A gamemaster opens a lobby, players sign in with their League name and a 6-digit passcode, and one dashboard shows every player&rsquo;s restrictions for every game.</p>
-        <a class="btn btn--pill btn--accent" href="/session">Open a session</a>
+        <div class="section-label">/ RUNNING A LOBBY</div>
+        <p class="gate__blurb">A gamemaster opens a lobby and hands out the link. Players sign in, get rolled, play, and the gamemaster submits the placements at the end.</p>
+        <a class="btn btn--pill btn--accent" href="/session">Lobbies</a>
+      </div>
+      <div class="gate__card">
+        <div class="section-label">/ YOUR RECORD</div>
+        <p class="gate__blurb">Every game you have been rolled for, what you were carrying, where you finished, and which restrictions actually cost you places.</p>
+        <a class="btn btn--pill" href="/me">My matches</a>
       </div>
       <div class="gate__card">
         <div class="section-label">/ ROLLING ON YOUR OWN</div>
-        <p class="gate__blurb">Everything below rolls in this browser and saves nowhere else. Good for testing restrictions in customs, or for running a lobby by reading results out loud.</p>
-        <a class="btn btn--pill" href="#roll">Use the solo roller</a>
+        <p class="gate__blurb">The same engine with no account and no server, rolling in your browser. For testing restrictions in customs before they reach a real lobby.</p>
+        <a class="btn btn--pill" href="/roller">Solo roller</a>
       </div>
     </div>
   </section>
 
-  <!-- ============ ROLLER ============ -->
-  <section class="roll" id="roll">
-    <div class="roll__head" data-reveal>
-      <h2 class="title">Roll a player</h2>
-    </div>
-    <div class="roll__body">
-      <div class="controls" data-reveal>
-        <div class="field">
-          <label for="playerName">/ Player</label>
-          <input id="playerName" type="text" placeholder="summoner name" autocomplete="off" spellcheck="false">
-        </div>
-
-        <div class="field">
-          <label for="rankSelect">/ Rank</label>
-          <select id="rankSelect"></select>
-        </div>
-
-        <div class="field">
-          <label id="gameLabel">/ Game</label>
-          <div class="seg" id="gameSeg" role="group" aria-labelledby="gameLabel"></div>
-        </div>
-
-        <div class="field">
-          <label for="seedInput">/ Seed <span class="hint">(blank = new each roll)</span></label>
-          <input id="seedInput" type="text" placeholder="auto" autocomplete="off" spellcheck="false">
-        </div>
-
-        <div class="dist" id="distBox"></div>
-
-        <button class="btn btn--pill btn--accent" id="rollBtn">Roll restrictions</button>
-        <p class="hint">Press <b>R</b> anywhere to roll, <b>C</b> to copy the last result.</p>
-      </div>
-
-      <div class="plate" data-reveal>
-        <div class="plate__bar">
-          <span class="plate__who" id="plateWho">NO ROLL YET</span>
-          <span id="plateRank"></span>
-          <span class="plate__seed">SEED <b id="plateSeed">&mdash;</b></span>
-        </div>
-        <div class="plate__body" id="plateBody">
-          <div class="plate__empty">
-            <span>Pick a rank and hit roll</span>
-          </div>
-        </div>
-        <div class="plate__actions">
-          <button class="btn" id="copyBtn" disabled>Copy for Discord</button>
-          <button class="btn" id="againBtn" disabled>Roll again</button>
-          <button class="btn" id="saveBtn" disabled>Save to log</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ RANKS ============ -->
-  <section class="ranks" id="ranks">
+  <section class="ranks">
     <div class="section-label">/ DISTRIBUTION BY RANK</div>
     <h2 class="title" data-reveal>Who gets what</h2>
-    <div class="ranks__grid" id="ranksGrid" data-reveal></div>
+    <div class="ranks__grid ranks__grid--static" id="ranksGrid" data-reveal></div>
     <p class="hint" style="margin-top:1.25rem">Rolled fresh for every player, every game. Two similar restrictions in one roll &rarr; the lower one is rerolled automatically.</p>
   </section>
 
-  <!-- ============ POOL ============ -->
-  <section class="pool" id="pool">
-    <div class="pool__head">
-      <h2 class="title" data-reveal>Pool <span class="count" id="poolCount"></span></h2>
-      <div class="pool__tools">
-        <button class="btn" id="poolAll">Enable all</button>
-        <button class="btn" id="poolReset">Reset</button>
-      </div>
-    </div>
-    <p class="hint" style="margin-top:0.75rem">Click a restriction to take it out of the draw. Playtesters: switch off anything that turns out to be unworkable and the change sticks in this browser.</p>
-    <div class="pool__cols">
-      <div>
-        <div class="section-label">/ MAJOR <span class="count" id="majorCount"></span></div>
-        <div id="majorList"></div>
-      </div>
-      <div>
-        <div class="section-label">/ MINOR <span class="count" id="minorCount"></span></div>
-        <div id="minorList"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ LOG ============ -->
-  <section class="log" id="log">
-    <div class="log__head-row">
-      <h2 class="title" data-reveal>Log <span class="count" id="logCount"></span></h2>
-      <div class="log__tools">
-        <button class="btn" id="logCopy">Copy all</button>
-        <button class="btn" id="logCsv">Download CSV</button>
-        <button class="btn" id="logClear">Clear</button>
-      </div>
-    </div>
-    <p class="hint" style="margin-top:0.75rem">Saved rolls live in this browser only. Each row keeps its seed, so any result can be re-rolled and verified later.</p>
-    <div class="log__table">
-      <div class="log__head">
-        <span>/ TIME</span><span>/ PLAYER</span><span>/ RESTRICTIONS</span><span>/ SEED</span>
-      </div>
-      <div id="logRows"></div>
-    </div>
-  </section>
-
-  <!-- ============ FOOTER ============ -->
   <footer class="footer">
     <div class="section-label">/ NOTES</div>
     <p class="footer__blurb">Restrictions and the rank distribution come straight from the tournament doc. Both are subject to change &mdash; the list lives in <code>lib/restrictions.js</code>, one line per restriction, and the <code>family</code> tag is what decides which pairs count as &ldquo;similar&rdquo; for the reroll rule.</p>
@@ -186,9 +92,20 @@
 
 </main>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
 <script src="/lib/restrictions.js"></script>
-<script src="/assets/app.js"></script>
+<script src="/assets/nav.js"></script>
+<script>
+(function () {
+  const grid = document.getElementById('ranksGrid');
+  grid.innerHTML = window.TFT.RANKS.map(function (r) {
+    const parts = [];
+    if (r.major) parts.push(r.major + ' major');
+    if (r.minor) parts.push(r.minor + ' minor');
+    return '<div class="rank-card"><span class="rank-card__name">' + r.name + '</span>'
+      + '<span class="rank-card__dist">' + parts.join(' + ') + '</span></div>';
+  }).join('');
+  document.querySelectorAll('[data-reveal]').forEach(function (el) { el.classList.add('is-in'); });
+})();
+</script>
 </body>
 </html>
