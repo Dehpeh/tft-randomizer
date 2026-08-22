@@ -44,6 +44,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Deploy. Session links look like `https://your-domain/s/PLM73D`.
 
+**Do not move the client scripts back to the repo root.** Vercel's zero-config
+build treats a root-level `app.js` (or `server.js`, `index.js`) as a Node server
+entrypoint and puts it in front of everything as a catch-all function — which
+means browser code gets invoked as a server, crashes on boot, and every single
+path returns `FUNCTION_INVOCATION_FAILED`, static files included. That is why
+the client lives in `assets/`, the shared engine in `lib/`, and `server.mjs` is
+listed in `.vercelignore`.
+
 Both are checked rather than assumed: on Vercel, a missing `SESSION_SECRET` and
 a missing Redis each throw with a message saying which one, instead of falling
 back to a per-instance file that serverless functions do not share and letting
