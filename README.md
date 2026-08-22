@@ -90,7 +90,7 @@ rather than silent.
 
 That tag is the only knob the rule needs: if you decide "no 3-star allowed" and
 "5/4 costs banned" are too similar to stack, give them the same family in
-`restrictions.js` and the randomizer stops pairing them.
+`lib/restrictions.js` and the randomizer stops pairing them.
 
 **Seeds.** Every roll carries a seed (`6NH3-HM77`). Same seed, same rank, same
 pool reproduces it exactly — an umpire can check any disputed roll after the
@@ -126,7 +126,7 @@ someone learns which trait you are banned from playing.
 
 ## Editing the restrictions
 
-Everything lives in [`restrictions.js`](restrictions.js) — one object per
+Everything lives in [`lib/restrictions.js`](lib/restrictions.js) — one object per
 restriction:
 
 ```js
@@ -141,10 +141,10 @@ are the `RANKS` array in the same file.
 
 | File | What it holds |
 | --- | --- |
-| `index.html`, `app.js` | Solo roller |
-| `session.html`, `session.js` | Lobby: create, join, dashboard |
-| `restrictions.js` | Restriction pool, rank table, seeded roll engine (browser + server) |
-| `styles.css` | Design tokens and components, lifted from dehpeh.dev |
+| `index.html`, `assets/app.js` | Solo roller |
+| `session.html`, `assets/session.js` | Lobby: create, join, dashboard |
+| `lib/restrictions.js` | Restriction pool, rank table, seeded roll engine (browser + server) |
+| `assets/styles.css` | Design tokens and components, lifted from dehpeh.dev |
 | `api/create.js` | Open a lobby, become its gamemaster |
 | `api/join.js` | Claim a name with a passcode, or sign back in |
 | `api/state.js` | What the dashboard polls |

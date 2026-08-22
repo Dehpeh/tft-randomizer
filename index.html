@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="/assets/styles.css">
 <script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('tft.theme');if(t&&t!=='light')document.documentElement.setAttribute('data-theme',t);if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('motion-reduced');}catch(e){}</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23011627'/><rect x='3' y='3' width='10' height='4' fill='%23F0C078'/><rect x='3' y='9' width='4' height='4' fill='%23EF5350'/><rect x='9' y='9' width='4' height='4' fill='%2375D1C4'/></svg>">
 </head>
@@ -177,7 +177,7 @@
   <!-- ============ FOOTER ============ -->
   <footer class="footer">
     <div class="section-label">/ NOTES</div>
-    <p class="footer__blurb">Restrictions and the rank distribution come straight from the tournament doc. Both are subject to change &mdash; the list lives in <code>restrictions.js</code>, one line per restriction, and the <code>family</code> tag is what decides which pairs count as &ldquo;similar&rdquo; for the reroll rule.</p>
+    <p class="footer__blurb">Restrictions and the rank distribution come straight from the tournament doc. Both are subject to change &mdash; the list lives in <code>lib/restrictions.js</code>, one line per restriction, and the <code>family</code> tag is what decides which pairs count as &ldquo;similar&rdquo; for the reroll rule.</p>
     <div class="foot">
       <span>TFT TOURNAMENT &middot; RANDOMIZER</span>
       <span>BUILT BY DANIEL</span>
@@ -188,7 +188,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="restrictions.js"></script>
-<script src="app.js"></script>
+<script src="/lib/restrictions.js"></script>
+<script src="/assets/app.js"></script>
 </body>
 </html>

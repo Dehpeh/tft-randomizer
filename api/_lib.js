@@ -1,7 +1,7 @@
 /* Shared plumbing for the session routes: request/response helpers and the
    shape of a session document. */
 
-const rules = require('../restrictions.js');
+const rules = require('../lib/restrictions.js');
 const auth = require('./_auth.js');
 const store = require('./_store.js');
 
