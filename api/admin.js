@@ -37,7 +37,19 @@ module.exports = async function handler(req, res) {
 
   const input = await lib.body(req);
 
-  if (!process.env.ADMIN_KEY) return lib.fail(res, 404, 'Admin endpoint is disabled: no ADMIN_KEY set.');
+  if (!process.env.ADMIN_KEY) {
+    /* Names only, never values, and only ones that look like a misspelling of
+       ADMIN_KEY. Enough to tell "you have not redeployed" apart from "you typed
+       ADMINKEY", which is otherwise invisible from outside. */
+    const near = Object.keys(process.env).filter((k) => /admin/i.test(k));
+    return lib.send(res, 404, {
+      error: 'Admin endpoint is disabled: no ADMIN_KEY set.',
+      similarNamesInEnvironment: near,
+      hint: near.length
+        ? 'Those exist but ADMIN_KEY does not. Check the spelling.'
+        : 'Nothing admin-shaped is set on this deployment. Add ADMIN_KEY for Production, then redeploy — environment variables only reach builds that start after they are saved.',
+    });
+  }
   if (!keyMatches(input.key)) return lib.fail(res, 403, 'Bad admin key.');
 
   const op = String(input.op || '');
