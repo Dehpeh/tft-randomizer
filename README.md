@@ -10,10 +10,11 @@ doc, then keeps the results.
 | `/s/CODE` | One lobby's live dashboard |
 | `/me` | Your account: matches, placements, and what each restriction costs you |
 | `/roller` | Solo roller — same engine, no account, nothing saved server-side |
+| `/organiser` | Organiser dashboard — every player, lobby and result (needs `ADMIN_KEY`) |
 
 Static HTML/CSS/JS plus a handful of serverless functions. No build step, no
 framework, no dependencies — same design language as
-[dehpeh.dev](https://dehpeh.dev): same tokens, same type, same four themes.
+[dehpeh.dev](https://dehpeh.dev): same tokens, same type, five themes including a monochrome dark one.
 
 ## Run it locally
 
