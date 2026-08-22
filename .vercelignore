@@ -1,0 +1,5 @@
+# Local development only. At the repo root it can be mistaken for the
+# deployment's server entrypoint, which would put a catch-all function in front
+# of the static files.
+server.mjs
+README.md
