@@ -98,11 +98,8 @@
 (function () {
   const grid = document.getElementById('ranksGrid');
   grid.innerHTML = window.TFT.RANKS.map(function (r) {
-    const parts = [];
-    if (r.major) parts.push(r.major + ' major');
-    if (r.minor) parts.push(r.minor + ' minor');
     return '<div class="rank-card"><span class="rank-card__name">' + r.name + '</span>'
-      + '<span class="rank-card__dist">' + parts.join(' + ') + '</span></div>';
+      + '<span class="rank-card__dist">' + window.TFT.distText(r) + '</span></div>';
   }).join('');
   document.querySelectorAll('[data-reveal]').forEach(function (el) { el.classList.add('is-in'); });
 })();

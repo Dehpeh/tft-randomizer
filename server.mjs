@@ -38,8 +38,10 @@ async function runFunction(name, req, res) {
     return;
   }
   try {
+    // Anything the functions require, so editing a rule or a route takes effect
+    // on the next request instead of needing a restart.
     for (const key of Object.keys(require.cache)) {
-      if (key.startsWith(join(ROOT, 'api')) || key === join(ROOT, 'restrictions.js')) delete require.cache[key];
+      if (key.startsWith(join(ROOT, 'api')) || key.startsWith(join(ROOT, 'lib'))) delete require.cache[key];
     }
     const handler = require(file);
     await handler(req, res);

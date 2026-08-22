@@ -185,9 +185,9 @@
           <span class="match__lobby"><a href="/s/${esc(m.code)}">${esc(m.lobby)}</a> · Game ${m.game}</span>
           <span class="match__meta">${esc(rankName(m.rank))} · seed ${esc(m.seed)}</span>
         </header>
-        <ul class="pcard__list">
+        ${m.picks.length ? `<ul class="pcard__list">
           ${m.picks.map((p) => `<li class="pcard__pick pcard__pick--${p.tier}"><b>${esc(p.tier)}</b><span>${esc(p.text)}</span></li>`).join('')}
-        </ul>
+        </ul>` : '<div class="pcard__waiting pcard__waiting--clean">Played clean — no restrictions</div>'}
       </article>`).join('');
   }
 })();

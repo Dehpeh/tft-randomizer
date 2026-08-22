@@ -13,6 +13,9 @@
    Do not reuse this pattern for anything that matters. */
 
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const store = require('./_store.js');
 
 const COOKIE = 'tft_id';
@@ -75,9 +78,19 @@ function secret() {
   if (process.env.VERCEL) {
     throw new Error('SESSION_SECRET is missing or too short (needs 24+ characters)');
   }
-  // Local development: a stable per-process secret. Never reached on a
-  // deployment, where the check above throws instead.
-  if (!global.__tftDevSecret) global.__tftDevSecret = crypto.randomBytes(32).toString('hex');
+  /* Local only — never reached on a deployment, where the check above throws.
+     Kept in a file next to the store rather than in memory: restarting the dev
+     server should not sign out a lobby mid-tournament. */
+  if (!global.__tftDevSecret) {
+    const file = path.join(os.homedir(), '.tft-randomizer-devsecret');
+    try {
+      global.__tftDevSecret = fs.readFileSync(file, 'utf8').trim();
+    } catch (e) { /* first run */ }
+    if (!global.__tftDevSecret || global.__tftDevSecret.length < 24) {
+      global.__tftDevSecret = crypto.randomBytes(32).toString('hex');
+      try { fs.writeFileSync(file, global.__tftDevSecret); } catch (e) { /* read-only home */ }
+    }
+  }
   return global.__tftDevSecret;
 }
 

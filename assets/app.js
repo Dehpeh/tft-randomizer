@@ -74,12 +74,7 @@
     paintDist();
   }
 
-  function dist(r) {
-    const parts = [];
-    if (r.major) parts.push(`${r.major} major`);
-    if (r.minor) parts.push(`${r.minor} minor`);
-    return parts.join(' + ');
-  }
+  const dist = (r) => T.distText(r);
 
   function setRank(id) {
     state.rankId = id;
@@ -94,9 +89,10 @@
     const pool = enabled();
     const nMajor = T.MAJOR.filter((x) => pool.has(x.id)).length;
     const nMinor = T.MINOR.filter((x) => pool.has(x.id)).length;
-    $('distBox').innerHTML =
-      `<strong>${r.name}</strong> rolls <strong>${dist(r)}</strong><br>` +
-      `drawing from ${nMajor} major / ${nMinor} minor`;
+    // A rank that draws nothing should not advertise the size of the pool.
+    $('distBox').innerHTML = r.major || r.minor
+      ? `<strong>${r.name}</strong> rolls <strong>${dist(r)}</strong><br>drawing from ${nMajor} major / ${nMinor} minor`
+      : `<strong>${r.name}</strong> rolls <strong>nothing</strong><br>below Platinum plays clean`;
   }
 
   /* ---------- the pool editor ---------- */
@@ -166,6 +162,13 @@
     $('plateWho').textContent = (result.player || 'UNNAMED PLAYER').toUpperCase();
     $('plateRank').textContent = `${result.rank.name.toUpperCase()} · GAME ${result.game}`;
     $('plateSeed').textContent = seed;
+
+    if (!result.picks.length) {
+      $('plateBody').innerHTML = '<div class="plate__empty plate__empty--clean"><span>No restrictions — ' + result.rank.name + ' plays clean</span></div>';
+      state.spinning = false;
+      setActions(true);
+      return;
+    }
 
     $('plateBody').innerHTML = result.picks.map(slotMarkup).join('');
     spin(result.picks);
@@ -262,7 +265,9 @@
   /* ---------- output ---------- */
   function resultText(r) {
     const head = `${r.player || 'Unnamed player'} — ${r.rank.name} · Game ${r.game}`;
-    const lines = r.picks.map((p) => `[${p.tier.toUpperCase()}] ${p.text}`);
+    const lines = r.picks.length
+      ? r.picks.map((p) => `[${p.tier.toUpperCase()}] ${p.text}`)
+      : ['[NONE] No restrictions'];
     return [head, ...lines, `seed ${r.seed}`].join('\n');
   }
 

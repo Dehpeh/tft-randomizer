@@ -102,7 +102,9 @@ Games 1-3 exist by default and the gamemaster can add more.
 
 ## What it implements
 
-**Distribution by rank** (from the doc):
+**Distribution by rank.** Challenger through Platinum comes from the doc; everything
+below it plays clean, so anyone can enter the tournament without being handed a
+handicap the ladder never asked for:
 
 | Rank | Rolls |
 | --- | --- |
@@ -112,6 +114,7 @@ Games 1-3 exist by default and the gamemaster can add more.
 | Diamond | 3 minor |
 | Emerald | 2 minor |
 | Platinum | 1 minor |
+| Gold and below, Unranked | nothing — they play clean |
 
 **"If a player gets two similar restrictions, reroll the lower one."** Every
 restriction carries a `family` tag — `shop`, `afk`, `hands`, `drink`, `econ`,

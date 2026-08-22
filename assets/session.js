@@ -75,12 +75,8 @@
   }
 
   function fillRanks(select, selected) {
-    select.innerHTML = T.RANKS.map((r) => {
-      const parts = [];
-      if (r.major) parts.push(r.major + ' major');
-      if (r.minor) parts.push(r.minor + ' minor');
-      return `<option value="${r.id}"${r.id === selected ? ' selected' : ''}>${r.name} — ${parts.join(' + ')}</option>`;
-    }).join('');
+    select.innerHTML = T.RANKS.map((r) =>
+      `<option value="${r.id}"${r.id === selected ? ' selected' : ''}>${r.name} — ${T.distText(r)}</option>`).join('');
   }
 
   /* ---------- boot ---------- */
@@ -316,8 +312,8 @@
           <span class="plate__seed">${roll ? 'SEED <b>' + esc(roll.seed) + '</b>' : ''}</span>
         </div>
         <div class="plate__body">
-          ${roll
-            ? roll.picks.map((p, i) => slotMarkup(p, i)).join('')
+          ${roll && roll.picks.length ? roll.picks.map((p, i) => slotMarkup(p, i)).join('')
+            : roll ? '<div class="plate__empty plate__empty--clean"><span>No restrictions this game — play clean</span></div>'
             : '<div class="plate__empty"><span>Waiting for the gamemaster to roll</span></div>'}
         </div>
       </div>`;
@@ -387,13 +383,14 @@
             <span class="tag">${esc(rankName(p.rank))}</span>
           </span>
         </header>
-        ${roll ? `<ul class="pcard__list">${roll.picks.map((pick, i) => `
+        ${roll && roll.picks.length ? `<ul class="pcard__list">${roll.picks.map((pick, i) => `
           <li class="pcard__pick pcard__pick--${pick.tier}">
             <b>${pick.tier}</b>
             <span>${esc(pick.text)}</span>
             ${s.isGm ? `<button class="slot__reroll" type="button" data-op="rerollSlot" data-player="${esc(p.id)}" data-index="${i}">Reroll</button>` : ''}
           </li>`).join('')}</ul>
           <div class="pcard__seed">SEED ${esc(roll.seed)}</div>`
+        : roll ? '<div class="pcard__waiting pcard__waiting--clean">Plays clean — no restrictions</div>'
         : '<div class="pcard__waiting">No restrictions yet</div>'}
         ${s.isGm ? gmRow(p) : ''}
       </article>`;
@@ -656,6 +653,7 @@
       const place = places[p.id];
       lines.push(`${p.display} (${rankName(p.rank)})${place ? ' — ' + ordinal(place) : ''}`);
       if (!roll) lines.push('  — not rolled yet');
+      else if (!roll.picks.length) lines.push('  — no restrictions');
       else {
         roll.picks.forEach((pick) => lines.push(`  [${pick.tier.toUpperCase()}] ${pick.text}`));
         lines.push(`  seed ${roll.seed}`);

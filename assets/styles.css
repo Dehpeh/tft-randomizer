@@ -1280,3 +1280,10 @@ button, input, select { font-weight: 300; }
 /* ...but the sign-in card is alone in its grid: there is nothing to line up
    with, and pinning its button to the bottom would strand it under the hint. */
 .gate__grid--one .gate__card .btn--pill { margin-top: 0.35rem; }
+
+/* A rank below Platinum rolls nothing, which is a result rather than an
+   absence: say so in the accent colour instead of leaving a blank plate that
+   reads as "the gamemaster forgot you". */
+.plate__empty--clean { color: var(--teal); }
+.plate__empty--clean span::after { content: none; }
+.pcard__waiting--clean { color: var(--teal); }
