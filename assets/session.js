@@ -256,6 +256,7 @@
        whole roster grid — is gamemaster furniture, so they get a list instead of
        a card wall and the standings fold away. */
     $('copyLink').hidden = !s.isGm;
+    $('proctorLink').href = `/proctor?code=${s.code}&game=${view.game}`;
     $('rosterGrid').hidden = !s.isGm;
     $('rosterList').hidden = s.isGm;
     $('rosterTitle').innerHTML = s.isGm

@@ -56,6 +56,9 @@
     augmentSince: 0,
     region: null,        // normalised {x,y,w,h} for the augment band
     calibrating: false,
+    worker: null,
+    gameLocked: false,   // true once the player picks a game themselves
+    watchTimer: null,
     flags: [],
     sent: 0,
   };
@@ -98,14 +101,37 @@
 
     $('lobbySelect').innerHTML = state.lobbies.map((l) =>
       `<option value="${esc(l.code)}">${esc(l.name)} · ${esc(l.code)}</option>`).join('');
-    $('gameSelect').innerHTML = [1, 2, 3, 4, 5].map((n) => `<option value="${n}">Game ${n}</option>`).join('');
-    state.code = state.lobbies[0].code;
+    $('gameSelect').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}">Game ${n}</option>`).join('');
+
+    /* Arriving from the lobby's Proctor button, both are already decided —
+       there is no reason to make someone pick their own lobby out of a list
+       they were just looking at. */
+    const params = new URLSearchParams(location.search);
+    const wanted = String(params.get('code') || '').toUpperCase();
+    state.code = state.lobbies.some((l) => l.code === wanted) ? wanted : state.lobbies[0].code;
+    $('lobbySelect').value = state.code;
+
+    const wantedGame = Number(params.get('game'));
+    if (Number.isInteger(wantedGame) && wantedGame >= 1 && wantedGame <= 9) {
+      state.game = wantedGame;
+      state.gameLocked = true;
+      $('gameSelect').value = String(wantedGame);
+    }
 
     $('lobbySelect').addEventListener('change', () => { state.code = $('lobbySelect').value; loadRules(); });
-    $('gameSelect').addEventListener('change', () => { state.game = Number($('gameSelect').value); loadRules(); });
+    $('gameSelect').addEventListener('change', () => {
+      state.game = Number($('gameSelect').value);
+      state.gameLocked = true;
+      loadRules();
+    });
 
     loadCalibration();
     loadRules();
+
+    /* The gamemaster rolls when they roll — often after everyone already has
+       this page open. Without this the panel would sit on "nothing rolled yet"
+       until someone thought to refresh. */
+    state.watchTimer = setInterval(() => { if (!document.hidden) loadRules(); }, 5000);
   }
 
   function fail(message) {
@@ -119,9 +145,18 @@
     try {
       const data = await fetch('/api/state?code=' + state.code, { headers: { accept: 'application/json' } }).then((r) => r.json());
       const s = data.session;
-      const roll = s && (s.rolls[state.game] || {})[s.you];
+      if (!s) return;
+
+      /* Follow whichever game the lobby is on, until the player says otherwise.
+         Getting this wrong would file their evidence against the wrong game. */
+      if (!state.gameLocked && s.game !== state.game) {
+        state.game = s.game;
+        $('gameSelect').value = String(s.game);
+      }
+
+      const roll = (s.rolls[state.game] || {})[s.you];
       if (!roll) {
-        $('myRules').innerHTML = '<p class="hint">Nothing rolled for this game yet.</p>';
+        $('myRules').innerHTML = `<p class="hint">Nothing rolled for game ${state.game} yet — this fills in by itself when your gamemaster rolls.</p>`;
         return;
       }
       $('myRules').innerHTML = roll.picks.map((p) => `
@@ -228,6 +263,7 @@
 
     state.code = $('lobbySelect').value;
     state.game = Number($('gameSelect').value);
+    await loadRules();
 
     video.srcObject = state.stream;
     await video.play().catch(() => {});
@@ -246,15 +282,44 @@
     setTimeout(drawOverlay, 200);
 
     addFlag('started', 'Proctor started', 0);
-    state.timer = setInterval(tick, SAMPLE_MS);
+    startClock();
     toast('Watching your game window');
   });
 
   $('stopBtn').addEventListener('click', stop);
 
-  function stop() {
+  /* The whole point is to watch while they play, which means this tab is in the
+     background the entire time — and a background tab's setInterval gets
+     throttled to about once a minute, which would quietly turn a proctor into
+     nothing. Worker timers are not throttled that way, so the clock lives in a
+     worker and the main thread only does the drawing. setInterval stays as the
+     fallback for anything that cannot spawn one. */
+  function startClock() {
+    const source = 'let t=null;onmessage=e=>{if(e.data.stop){clearInterval(t);return}'
+      + 't=setInterval(()=>postMessage(1),e.data.ms)}';
+    try {
+      const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+      state.worker = new Worker(url);
+      URL.revokeObjectURL(url);
+      state.worker.onmessage = tick;
+      state.worker.postMessage({ ms: SAMPLE_MS });
+    } catch (e) {
+      state.timer = setInterval(tick, SAMPLE_MS);
+    }
+  }
+
+  function stopClock() {
+    if (state.worker) {
+      state.worker.postMessage({ stop: true });
+      state.worker.terminate();
+      state.worker = null;
+    }
     clearInterval(state.timer);
     state.timer = null;
+  }
+
+  function stop() {
+    stopClock();
     if (state.stream) state.stream.getTracks().forEach((t) => t.stop());
     state.stream = null;
     $('startBtn').hidden = false;
@@ -468,6 +533,8 @@
   });
 
   window.addEventListener('beforeunload', () => {
+    clearInterval(state.watchTimer);
+    stopClock();
     if (state.stream) state.stream.getTracks().forEach((t) => t.stop());
   });
 })();
