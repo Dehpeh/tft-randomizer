@@ -182,11 +182,13 @@ API, and their machine measures a few things twice a second:
 - **Stillness.** Frame differencing needs no calibration and cannot really be
   wrong: if nothing changed for forty seconds, they were not playing. That is
   the AFK restrictions covered.
-- **Augment screens.** The augment overlay is a large, sudden, sustained change
-  in the middle of the screen. Catching the moment is reliable; deciding which
-  of the three cards was clicked is not, without templates calibrated per
-  resolution. So it captures the screen and quotes what the roll said to take —
-  a two-second check for a human instead of watching eight streams.
+- **Augment screens.** The overlay is a large, sudden, sustained change in the
+  middle of the screen, and it always lands in the same place, so the band is
+  preset — nobody is asked where their augment screen is. Splitting that band
+  into thirds locates the click: the card that was taken animates while the
+  other two do not. That is an inference, so it reads "most movement on the
+  left" beside what the roll said, with a screenshot. A two-second check for a
+  human, not a verdict.
 
 It never touches the game: no memory reads, no injected input, no overlay, no
 file near the client. It is the API a video call uses to share a screen.

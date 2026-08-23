@@ -16,12 +16,13 @@
      - Stillness. Frame differencing is exact: if nothing on screen changed for
        forty seconds, they were not playing. That covers the AFK restrictions
        and needs no calibration at all.
-     - Augment screens. The augment overlay is a big, sudden, sustained change
-       in the middle of the screen. Detecting the moment is reliable; deciding
-       which of the three they clicked is not, without per-resolution templates
-       nobody has built yet. So it captures the screen and tells you what the
-       roll said to take — a two-second check for a human instead of a
-       stream-watching shift.
+     - Augment screens. The overlay is a big, sudden, sustained change in the
+       middle of the screen, and it always lands in the same place, so the band
+       is a preset rather than something a player is asked to describe. Splitting
+       it into thirds locates the click: when a card is taken it animates and the
+       other two do not. That is an inference, so it is reported as "most
+       movement on the left" beside what the roll said, with a screenshot — a
+       two-second check for a human, not a verdict.
 
    Gold, shop slots and star levels are the next ones worth doing. They all need
    digit and sprite templates calibrated against real footage at several UI
@@ -40,6 +41,14 @@
   const AUGMENT_SPIKE = 14;        // a modal opening is a much bigger change than play
   const MAX_SHOTS = 40;
 
+  /* The augment overlay lands in the same place every time: three cards across
+     the middle of the screen, roughly the middle 84% wide and the top two
+     thirds tall. Measured off a 16:9 capture, and it is proportional, so it
+     holds at any resolution. Nobody should have to be asked where their augment
+     screen is — this is the default, and the calibration box is there only for
+     an unusual aspect ratio or a UI scale that moves it. */
+  const DEFAULT_REGION = { x: 0.08, y: 0.05, w: 0.84, h: 0.60 };
+
   const state = {
     account: null,
     lobbies: [],
@@ -54,8 +63,10 @@
     stillReported: false,
     inAugment: false,
     augmentSince: 0,
+    thirds: [0, 0, 0],
     region: null,        // normalised {x,y,w,h} for the augment band
     calibrating: false,
+    rolledAugment: null,
     worker: null,
     gameLocked: false,   // true once the player picks a game themselves
     watchTimer: null,
@@ -159,6 +170,17 @@
         $('myRules').innerHTML = `<p class="hint">Nothing rolled for game ${state.game} yet — this fills in by itself when your gamemaster rolls.</p>`;
         return;
       }
+      /* Only the augment restrictions name a card, and only those make the
+         flag worth reading. */
+      state.rolledAugment = null;
+      roll.picks.forEach((p) => {
+        T.detailsOf(p).forEach((d) => {
+          if (/^(left|middle|right)$/.test(String(d.value))) {
+            state.rolledAugment = d.label === 'Take' ? d.value : `${d.label} ${d.value}`;
+          }
+        });
+      });
+
       $('myRules').innerHTML = roll.picks.map((p) => `
         <div class="pcard__pick pcard__pick--${p.tier}" style="margin-bottom:0.5rem">
           <b>${esc(p.tier)}</b>
@@ -176,8 +198,8 @@
   function loadCalibration() {
     try {
       const raw = localStorage.getItem('tft.proctor.region');
-      state.region = raw ? JSON.parse(raw) : null;
-    } catch (e) { state.region = null; }
+      state.region = raw ? JSON.parse(raw) : DEFAULT_REGION;
+    } catch (e) { state.region = DEFAULT_REGION; }
   }
 
   $('calibBtn').addEventListener('click', () => {
@@ -187,10 +209,10 @@
   });
 
   $('calibClear').addEventListener('click', () => {
-    state.region = null;
+    state.region = DEFAULT_REGION;
     try { localStorage.removeItem('tft.proctor.region'); } catch (e) { /* private mode */ }
     drawOverlay();
-    toast('Augment area cleared');
+    toast('Back to the default augment area');
   });
 
   let dragStart = null;
@@ -340,6 +362,7 @@
 
     const whole = state.prev ? diff(state.prev, frame, null) : 0;
     const region = state.prev && state.region ? diff(state.prev, frame, state.region) : 0;
+    if (state.prev && state.region && state.inAugment) state.thirds = thirdsOf(state.prev, frame);
     state.prev = frame;
     state.lastMotion = whole;
 
@@ -397,22 +420,48 @@
     state.stillSince = null;
   }
 
-  /* An augment screen is a big sudden change in the middle band that then sits
-     there. Catching the moment is the reliable part; which card they clicked is
-     not, so the shot is kept and the roll is quoted next to it. */
+  /* One third of the band per card, so a click can be located. */
+  function thirdsOf(a, b) {
+    const r = state.region;
+    const w = r.w / 3;
+    return [0, 1, 2].map((i) => diff(a, b, { x: r.x + i * w, y: r.y, w, h: r.h }));
+  }
+
+  /* The overlay opening is a big sudden change in the band that then sits
+     there; it closing is the next big change. The card that was clicked is the
+     one still moving as it closes — an inference, not a certainty, so it is
+     reported as "most movement", and it is put next to what the roll said
+     rather than judged against it. */
   function watchAugments(regionMotion) {
     const now = elapsed();
+
     if (!state.inAugment && regionMotion > AUGMENT_SPIKE) {
       state.inAugment = true;
       state.augmentSince = now;
+      state.thirds = [0, 0, 0];
       shoot();
-      addFlag('augment', 'Augment screen — check the pick against your roll', now);
+      addFlag('augment', 'Augment screen opened' + rolledPick(), now);
       return;
     }
+
     if (state.inAugment && now - state.augmentSince > 3 && regionMotion > AUGMENT_SPIKE) {
       state.inAugment = false;
+      const names = ['left', 'middle', 'right'];
+      const top = state.thirds.indexOf(Math.max(...state.thirds));
+      const total = state.thirds.reduce((a, b) => a + b, 0);
+      const share = total ? state.thirds[top] / total : 0;
       shoot();
+      addFlag('augment', share > 0.45
+        ? `Taken — most movement on the ${names[top]}${rolledPick()}`
+        : `Taken — could not tell which${rolledPick()}`, now);
     }
+  }
+
+  /* What the randomizer told them to take, quoted on the flag so the check is
+     one glance rather than two screens. */
+  function rolledPick() {
+    const said = state.rolledAugment;
+    return said ? ` · your roll said ${said}` : '';
   }
 
   /* ---------- output ---------- */

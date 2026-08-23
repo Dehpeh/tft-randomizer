@@ -39,7 +39,7 @@
     <div class="gate__grid">
       <div class="gate__card">
         <div class="section-label">/ WHAT IT DOES</div>
-        <p class="gate__blurb">Reads pixels from the window you pick, a couple of frames a second, and looks at a few fixed spots: has anything moved, has the augment screen opened. It never touches the game &mdash; same browser feature a video call uses to share a screen.</p>
+        <p class="gate__blurb">Reads pixels from the window you pick, a couple of frames a second. It notices when nothing has moved for a while, and when the three augment cards come up &mdash; and it notes which one you took. It never touches the game: this is the browser feature a video call uses to share a screen.</p>
       </div>
       <div class="gate__card">
         <div class="section-label">/ WHERE IT GOES</div>
@@ -81,10 +81,10 @@
           <video id="preview" muted playsinline></video>
           <canvas id="overlay"></canvas>
         </div>
-        <p class="hint" id="calibHint">Drag on the picture to mark the augment area: the middle band where the three augment cards appear. Everything else is watched whole-screen.</p>
+        <p class="hint" id="calibHint">The dotted box is where the three augment cards appear at 2-1, 3-2 and 4-2. It is already set for a normal full-screen game &mdash; only move it if your cards sit outside it.</p>
         <div class="gmpanel__row" style="margin-top:0.75rem">
-          <button class="btn" id="calibBtn">Mark the augment area</button>
-          <button class="btn" id="calibClear">Clear</button>
+          <button class="btn" id="calibBtn">Move the box</button>
+          <button class="btn" id="calibClear">Reset to default</button>
         </div>
       </div>
 
