@@ -124,14 +124,24 @@
     const stillStart = find('still-start');
     const stillEnd = find('still-end');
 
+    /* The augment detector matches real text, which a drawn rectangle cannot
+       contain, so what is testable here is that it does NOT fire on things that
+       are not augment screens. Whether it fires on the real thing is a question
+       for the replay, on footage. */
+    const blank = { width: 320, height: 180, data: new Uint8ClampedArray(320 * 180 * 4).fill(20) };
+    const noise = { width: 320, height: 180, data: new Uint8ClampedArray(320 * 180 * 4) };
+    for (let i = 0; i < noise.data.length; i++) noise.data[i] = Math.floor(Math.random() * 255);
+    const blankScore = D.augmentScore(blank);
+    const noiseScore = D.augmentScore(noise);
+
     const checks = [
       ['A still spell is noticed', Boolean(stillStart), stillStart ? `at ${clock(stillStart.at)}` : 'never fired'],
       ['It trips at the threshold, not before', stillStart ? Math.abs(stillStart.seconds - 20) <= 1 : false, stillStart ? `${stillStart.seconds}s` : '—'],
       ['The spell is closed off when play resumes', Boolean(stillEnd), stillEnd ? `${stillEnd.seconds}s total` : 'never fired'],
-      ['The overlay opening is seen', Boolean(find('augment-open')), find('augment-open') ? `at ${clock(find('augment-open').at)}` : 'never fired'],
-      ['The overlay closing is seen', Boolean(take), take ? `at ${clock(take.at)}` : 'never fired'],
-      ['It names the card that animated', take ? take.third === 'middle' : false, take ? `said ${take.third || 'could not tell'}` : '—'],
-      ['Nothing fires during ordinary play', seen.filter((e) => e.kind === 'augment-open').length === 1, `${seen.filter((e) => e.kind === 'augment-open').length} overlay(s)`],
+      ['A blank screen is not an augment screen', Math.abs(blankScore) < 0.3, `scored ${blankScore.toFixed(2)}`],
+      ['Random noise is not an augment screen', Math.abs(noiseScore) < 0.3, `scored ${noiseScore.toFixed(2)}`],
+      ['Drawn shapes are not an augment screen', !find('augment-open'), find('augment-open') ? 'fired anyway' : 'stayed quiet'],
+      ['Which card was taken is never guessed', !take || take.third === null, take ? String(take.third) : 'no take'],
     ];
 
     const passed = checks.filter((c) => c[1]).length;

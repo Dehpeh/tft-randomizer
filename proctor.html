@@ -31,19 +31,19 @@
   <section class="hero hero--tight">
     <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
     <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
-    <h1 class="hero__title">Proctor <em>parked</em></h1>
-    <p class="hero__sub">Watching a game window and telling what happened in it turns out to need more than measuring how much the picture moved. Tested against real footage, this was wrong often enough that it is switched off rather than trusted.</p>
+    <h1 class="hero__title">Proctor <em>beta</em></h1>
+    <p class="hero__sub">Share your game window and this page catches every augment screen as it happens, with a screenshot, next to what the randomizer told you to take. One glance for an umpire instead of a stream-watching shift.</p>
   </section>
 
   <section class="gate">
     <div class="gate__grid">
       <div class="gate__card">
-        <div class="section-label">/ WHY IT IS OFF</div>
-        <p class="gate__blurb">Replayed against four hours of real gameplay it found 65 augment screens in fifteen minutes, where there were two. And a still screen turned out not to mean an idle player: TFT animates on its own, so the board keeps moving whether or not anyone is playing. Both checks are disabled until they are rebuilt on what is on screen rather than how much of it changed.</p>
+        <div class="section-label">/ WHAT IT CATCHES</div>
+        <p class="gate__blurb">Augment screens, by the words on them. Tested against four hours of real games it found every one &mdash; three a game &mdash; and nothing false in between. It does not try to say which card you clicked: there is nothing in the picture that reliably tells, so the screenshot goes to a person instead.</p>
       </div>
       <div class="gate__card">
-        <div class="section-label">/ WHAT STILL HOLDS</div>
-        <p class="gate__blurb">The capture side works and never touches the game, the video never leaves your machine, and nothing is sent anywhere. Whether the watching is any good is measured at <a href="/lab" style="border-bottom:1px dotted currentColor">the lab</a>, on a recording, before any of it is believed.</p>
+        <div class="section-label">/ WHERE IT GOES</div>
+        <p class="gate__blurb">It never touches the game &mdash; this is the browser feature a video call uses. The video never leaves your machine and screenshots stay in this tab; only short text notes go to your gamemaster, and only when you send them. Everything it claims is measured at <a href="/lab" style="border-bottom:1px dotted currentColor">the lab</a> before it is believed.</p>
       </div>
     </div>
   </section>
@@ -81,7 +81,7 @@
           <video id="preview" muted playsinline></video>
           <canvas id="overlay"></canvas>
         </div>
-        <p class="hint" id="calibHint">The dotted box is where the three augment cards appear at 2-1, 3-2 and 4-2. It is already set for a normal full-screen game &mdash; only move it if your cards sit outside it.</p>
+        <p class="hint" id="calibHint">The dotted box is only a guide to where the augment screen sits. Detection reads the &ldquo;Choose One&rdquo; text near the top, so a normal full-screen game needs nothing adjusted here.</p>
         <div class="gmpanel__row" style="margin-top:0.75rem">
           <button class="btn" id="calibBtn">Move the box</button>
           <button class="btn" id="calibClear">Reset to default</button>

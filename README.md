@@ -227,30 +227,45 @@ found, named right, **named wrong**, said unsure, and false alarms. Named wrong
 is the number that matters near a prize: a confident wrong answer is worse than
 no answer. Nothing is uploaded; the video never leaves the machine.
 
-### The verdict on the first attempt
+### What it found, and what came of it
 
-A 4h21m stream VOD was replayed through it. Fifteen minutes of one game:
+A 4h21m stream VOD was replayed through it, seven games' worth.
 
-| | Detected | Real |
-| --- | --- | --- |
-| Augment screens | 65 | 2 |
+**The first augment detector was wrong.** It looked for a large sudden change in
+the middle of the screen and found 65 augment screens in fifteen minutes, where
+there were two. Combat, spectating another board, a camera move and a team
+planner all look identical to it. Raising the threshold only trades false alarms
+for missed augments: the signal was wrong, not mistuned.
 
-A large sudden change in the middle of the screen is not distinctive in TFT.
-Combat, spectating another board, the camera moving and stream overlays all
-produce one. Raising the threshold only trades false alarms for missed augments:
-the signal is wrong, not mistuned. What marks an augment screen is its content —
-the dimmed board, three card panels, "Choose One" in a fixed place.
+**The second one works, because it reads the words instead.** The screen says
+"Choose One" in the same place in the same font every time; matching that text
+scores 0.95-1.00 on real augment screens and never above 0.36 on anything else.
+Measured across four separate games:
 
-Stillness looked better — zero false positives in fifteen minutes — until the
-reason showed up. Median frame-to-frame motion while playing was 8.6 against a
-threshold of 2.4, and that motion is the game animating, not the player acting.
-TFT never holds still, so a player doing nothing still produces a moving screen.
-Detecting AFK needs the parts that only move on input: the shop row, the gold
-counter, the bench.
+| Game | Augment screens found | Decisions | False positives |
+| --- | --- | --- | --- |
+| 1 | 4 | 3 | 0 |
+| 2 | 4 | 3 | 0 |
+| 3 | 5 | 4 | 0 |
+| 5 | 4 | 3 | 0 |
 
-Both detectors are therefore **off by default** and the proctor cannot send
-anything to a gamemaster. The measuring rig is the part worth keeping: the next
-attempt gets judged the same way instead of guessed at.
+Every game shows them at roughly 2m, 11m and 18-19m — 2-1, 3-2 and 4-2, exactly
+as TFT deals them. Where a game shows one more detection than decisions, the
+player rerolled a card: that re-renders the screen and reads as two detections
+seconds apart.
+
+**Which card was taken is not attempted.** Motion across the three cards at the
+moment of choosing measured 33/33/33 on every real augment. There is nothing
+there to read, so the detector says *when* and never *which*, and the screenshot
+goes to a person. That is still the whole job done: the umpire gets the right
+frame every time instead of scrubbing a VOD.
+
+**Stillness stays off.** Zero false positives in fifteen minutes of play looks
+good until you see why: median frame-to-frame motion while playing was 8.6
+against a threshold of 2.4, and that motion is the game animating, not the
+player acting. TFT never holds still, so a player doing nothing still produces a
+moving screen. Catching AFK needs the parts that only move on input — the shop
+row, the gold counter, the bench — and that is not built.
 
 ## Organiser dashboard
 

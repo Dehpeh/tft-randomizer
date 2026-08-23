@@ -34,10 +34,9 @@
 
   const D = window.TFTDetect;
 
-  /* Measured against four hours of real gameplay and found wanting — see the
-     header of lib/detect.js. Until the detectors are rebuilt on content rather
-     than motion, nothing here is fit to reach a gamemaster. */
-  const SENDING_ENABLED = false;
+  /* Augment-screen detection is measured and reliable (see lib/detect.js);
+     stillness is not, and stays off. */
+  const SENDING_ENABLED = true;
 
   /* Sampling twice a second is plenty: the events being watched for last
      seconds, not frames, and this has to share a machine with the game. */
@@ -380,15 +379,17 @@
     if (e.kind === 'still-end') {
       updateLastFlag(`Still for ${e.seconds}s`, e.seconds);
     }
+    /* The screenshot is the point. Detection says exactly when to take it;
+       which card was taken is left to whoever looks at the picture, because
+       nothing in the pixels reliably says — motion across the three cards at
+       the moment of choosing measured 33/33/33 on real footage. */
     if (e.kind === 'augment-open') {
       shoot();
-      addFlag('augment', 'Augment screen opened' + rolledPick(), e.at);
+      addFlag('augment', 'Augment screen' + rolledPick(), e.at);
     }
     if (e.kind === 'augment-take') {
       shoot();
-      addFlag('augment', e.third
-        ? `Taken — most movement on the ${e.third}${rolledPick()}`
-        : `Taken — could not tell which${rolledPick()}`, e.at);
+      addFlag('augment', `Augment taken after ${e.openFor}s — check the shot${rolledPick()}`, e.at);
     }
   }
 
@@ -474,13 +475,6 @@
   }
 
   $('sendFlags').addEventListener('click', async () => {
-    if (!SENDING_ENABLED) {
-      window.TFTUI.alert({
-        title: 'Sending is off',
-        body: 'The detections behind these notes were wrong too often on real footage to put in front of a gamemaster. The findings stay here for testing until that is fixed.',
-      });
-      return;
-    }
     const unsent = state.flags.filter((f) => !f.sent && (f.kind === 'inactive' || f.kind === 'augment'));
     if (!unsent.length) { toast('Nothing new to send'); return; }
     const ok = await window.TFTUI.confirm({
