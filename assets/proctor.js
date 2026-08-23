@@ -32,13 +32,12 @@
   const $ = (id) => document.getElementById(id);
   const toast = (msg) => window.TFTUI.toast(msg);
 
+  const D = window.TFTDetect;
+
   /* Sampling twice a second is plenty: the events being watched for last
      seconds, not frames, and this has to share a machine with the game. */
   const SAMPLE_MS = 500;
   const ANALYSIS_W = 320;          // frames are measured small; nobody needs pixels
-  const MOTION_THRESHOLD = 2.4;    // mean channel difference that counts as "something moved"
-  const STILL_SECONDS = 20;        // a combat round with no input at all
-  const AUGMENT_SPIKE = 14;        // a modal opening is a much bigger change than play
   const MAX_SHOTS = 40;
 
   /* The augment overlay lands in the same place every time: three cards across
@@ -61,9 +60,7 @@
     lastMotion: 0,
     stillSince: null,
     stillReported: false,
-    inAugment: false,
-    augmentSince: 0,
-    thirds: [0, 0, 0],
+    detector: null,
     region: null,        // normalised {x,y,w,h} for the augment band
     calibrating: false,
     rolledAugment: null,
@@ -292,10 +289,7 @@
     state.stream.getVideoTracks()[0].addEventListener('ended', stop);
 
     state.startedAt = Date.now();
-    state.prev = null;
-    state.stillSince = null;
-    state.stillReported = false;
-    state.inAugment = false;
+    state.detector = D.createDetector({ region: state.region || DEFAULT_REGION });
 
     $('live').hidden = false;
     $('findings').hidden = false;
@@ -353,107 +347,43 @@
   /* ---------- the loop ---------- */
 
   function tick() {
-    if (!video.videoWidth) return;
+    if (!video.videoWidth || !state.detector) return;
     const h = Math.round(ANALYSIS_W * (video.videoHeight / video.videoWidth));
     work.width = ANALYSIS_W;
     work.height = h;
     wctx.drawImage(video, 0, 0, ANALYSIS_W, h);
     const frame = wctx.getImageData(0, 0, ANALYSIS_W, h);
 
-    const whole = state.prev ? diff(state.prev, frame, null) : 0;
-    const region = state.prev && state.region ? diff(state.prev, frame, state.region) : 0;
-    if (state.prev && state.region && state.inAugment) state.thirds = thirdsOf(state.prev, frame);
-    state.prev = frame;
-    state.lastMotion = whole;
+    const at = elapsed();
+    const prevFrame = state.detector.motionAt();
+    state.lastMotion = prevFrame ? D.diff(prevFrame, frame, null) : 0;
 
-    paintMeter(whole);
-    $('liveClock').textContent = clock(elapsed());
+    state.detector.push(frame, at).forEach(handle);
 
-    watchStillness(whole);
-    if (state.region) watchAugments(region);
+    paintMeter(state.lastMotion);
+    $('liveClock').textContent = clock(at);
     paintTiles();
   }
 
-  /* Mean absolute difference over a coarse sample of pixels. Coarse on purpose:
-     the question is "did anything happen", and sampling every fourth pixel
-     answers it for a quarter of the work. */
-  function diff(a, b, region) {
-    const w = b.width;
-    const h = b.height;
-    const x0 = region ? Math.floor(region.x * w) : 0;
-    const y0 = region ? Math.floor(region.y * h) : 0;
-    const x1 = region ? Math.min(w, Math.ceil((region.x + region.w) * w)) : w;
-    const y1 = region ? Math.min(h, Math.ceil((region.y + region.h) * h)) : h;
-
-    let total = 0;
-    let count = 0;
-    for (let y = y0; y < y1; y += 2) {
-      for (let x = x0; x < x1; x += 2) {
-        const i = (y * w + x) * 4;
-        total += Math.abs(a.data[i] - b.data[i])
-          + Math.abs(a.data[i + 1] - b.data[i + 1])
-          + Math.abs(a.data[i + 2] - b.data[i + 2]);
-        count += 3;
-      }
-    }
-    return count ? total / count : 0;
-  }
-
-  /* Stillness is the one thing measurable without knowing anything about TFT:
-     either the screen changed or it did not. */
-  function watchStillness(motion) {
-    const now = elapsed();
-    if (motion < MOTION_THRESHOLD) {
-      if (state.stillSince === null) { state.stillSince = now; state.stillReported = false; }
-      const held = now - state.stillSince;
-      if (held >= STILL_SECONDS && !state.stillReported) {
-        state.stillReported = true;
-        shoot();
-        addFlag('inactive', `Still for ${Math.round(held)}s`, now, Math.round(held));
-      }
-      return;
-    }
-    if (state.stillSince !== null && state.stillReported) {
-      const held = now - state.stillSince;
-      updateLastFlag(`Still for ${Math.round(held)}s`, Math.round(held));
-    }
-    state.stillSince = null;
-  }
-
-  /* One third of the band per card, so a click can be located. */
-  function thirdsOf(a, b) {
-    const r = state.region;
-    const w = r.w / 3;
-    return [0, 1, 2].map((i) => diff(a, b, { x: r.x + i * w, y: r.y, w, h: r.h }));
-  }
-
-  /* The overlay opening is a big sudden change in the band that then sits
-     there; it closing is the next big change. The card that was clicked is the
-     one still moving as it closes — an inference, not a certainty, so it is
-     reported as "most movement", and it is put next to what the roll said
-     rather than judged against it. */
-  function watchAugments(regionMotion) {
-    const now = elapsed();
-
-    if (!state.inAugment && regionMotion > AUGMENT_SPIKE) {
-      state.inAugment = true;
-      state.augmentSince = now;
-      state.thirds = [0, 0, 0];
+  /* Screenshots are taken here rather than in the detector: evidence is this
+     page's job, judgement is that file's. */
+  function handle(e) {
+    if (e.kind === 'still-start') {
       shoot();
-      addFlag('augment', 'Augment screen opened' + rolledPick(), now);
-      return;
+      addFlag('inactive', `Still for ${e.seconds}s`, e.at, e.seconds);
     }
-
-    if (state.inAugment && now - state.augmentSince > 3 && regionMotion > AUGMENT_SPIKE) {
-      state.inAugment = false;
-      const names = ['left', 'middle', 'right'];
-      const top = state.thirds.indexOf(Math.max(...state.thirds));
-      const total = state.thirds.reduce((a, b) => a + b, 0);
-      const share = total ? state.thirds[top] / total : 0;
+    if (e.kind === 'still-end') {
+      updateLastFlag(`Still for ${e.seconds}s`, e.seconds);
+    }
+    if (e.kind === 'augment-open') {
       shoot();
-      addFlag('augment', share > 0.45
-        ? `Taken — most movement on the ${names[top]}${rolledPick()}`
-        : `Taken — could not tell which${rolledPick()}`, now);
+      addFlag('augment', 'Augment screen opened' + rolledPick(), e.at);
+    }
+    if (e.kind === 'augment-take') {
+      shoot();
+      addFlag('augment', e.third
+        ? `Taken — most movement on the ${e.third}${rolledPick()}`
+        : `Taken — could not tell which${rolledPick()}`, e.at);
     }
   }
 
@@ -469,9 +399,7 @@
   function paintMeter(motion) {
     const pct = Math.max(2, Math.min(100, (motion / 30) * 100));
     $('motionFill').style.width = pct + '%';
-    $('motionNote').textContent = motion < MOTION_THRESHOLD
-      ? (state.stillSince === null ? 'Still' : `Still for ${Math.round(elapsed() - state.stillSince)}s`)
-      : 'Playing';
+    $('motionNote').textContent = motion < D.DEFAULTS.motionThreshold ? 'Still' : 'Playing';
   }
 
   function paintTiles() {

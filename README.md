@@ -12,6 +12,7 @@ doc, then keeps the results.
 | `/roller` | Solo roller — same engine, no account, nothing saved server-side |
 | `/organiser` | Organiser dashboard — every player, lobby and result (needs `ADMIN_KEY`) |
 | `/proctor` | Optional: a player shares their game window and their own browser watches it |
+| `/lab` | Measure the proctor: self test, replay a recording, score it against what happened |
 
 Static HTML/CSS/JS plus a handful of serverless functions. No build step, no
 framework, no dependencies — same design language as
@@ -201,6 +202,30 @@ penalties, which stay a human decision.
 Gold at 4-2, locked shop slots and star levels are the obvious next ones. All
 three need digit and sprite templates calibrated against real footage at several
 UI scales — that calibration is the actual work, not the plumbing.
+
+## Measuring the proctor
+
+A detector nobody has scored is a guess, so  scores it. It runs the same
+ the live page runs — measuring a copy would be worthless.
+
+**Self test.** Synthetic frames: play, go still, play, open an overlay, animate
+one card, close it. It proves the state machine fires in the right order and
+names the right card. It proves nothing about real TFT, but it caught a real
+bug — the first detector treated any large change as the overlay closing, so a
+card animating under the cursor read as a close. It fired three times per
+augment and could never name a card. Closing is now decided by resemblance to
+two reference frames (the board before, the overlay after) rather than by size.
+
+**Replay.** Drop in an OBS recording. It seeks through the file a fixed step at
+a time, which makes a run deterministic and repeatable: change a threshold, run
+the same file, compare like with like. The augment band is draggable here
+because a stream layout can put the game in a corner with overlays around it,
+and the preset assumes the game fills the frame.
+
+**Score.** Mark what actually happened — time and which card — and it reports
+found, named right, **named wrong**, said unsure, and false alarms. Named wrong
+is the number that matters near a prize: a confident wrong answer is worse than
+no answer. Nothing is uploaded; the video never leaves the machine.
 
 ## Organiser dashboard
 

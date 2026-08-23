@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Proctor Lab — TFT</title>
+<meta name="description" content="Replay a recording through the proctor and score what it got right.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/styles.css">
+<script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('tft.theme');if(t&&t!=='light')document.documentElement.setAttribute('data-theme',t);if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('motion-reduced');}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23011627'/><rect x='3' y='3' width='10' height='4' fill='%23F0C078'/><rect x='3' y='9' width='4' height='4' fill='%23EF5350'/><rect x='9' y='9' width='4' height='4' fill='%2375D1C4'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar__flag" href="/" aria-label="Home">
+    <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
+  </a>
+  <nav class="topbar__nav" aria-label="Primary">
+    <a href="/proctor"><span class="key">[P]</span> <span class="lbl">PROCTOR</span></a>
+    <a href="/session"><span class="key">[G]</span> <span class="lbl">LOBBIES</span></a>
+  </nav>
+  <span id="navAccount"></span>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
+</header>
+
+<main id="top">
+
+  <section class="hero hero--tight">
+    <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
+    <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
+    <h1 class="hero__title">Proctor <em>lab</em></h1>
+    <p class="hero__sub">Run a recording through the detector, mark what actually happened, and see what it got right. Same code that watches a live game &mdash; measured instead of trusted.</p>
+  </section>
+
+  <section class="gate">
+    <div class="gate__grid">
+      <div class="gate__card">
+        <div class="section-label">/ WHY THIS EXISTS</div>
+        <p class="gate__blurb">A detector nobody has scored is a guess. Record one game with OBS, drop the file in, and this replays it frame by frame &mdash; deterministic, repeatable, and honest about what it missed.</p>
+      </div>
+      <div class="gate__card">
+        <div class="section-label">/ THE FILE STAYS HERE</div>
+        <p class="gate__blurb">The video is read by this page and never uploaded. Nothing on this page talks to the server at all.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SELF TEST ============ -->
+  <section class="gmpanel">
+    <div class="section-label">/ SELF TEST</div>
+    <p class="hint">Synthetic frames, no footage needed: idle noise, an overlay that opens, one card that animates, the overlay closing. Proves the state machine fires in the right order and names the right third. It cannot prove anything about real TFT &mdash; that is what the replay below is for.</p>
+    <div class="gmpanel__row" style="margin-top:0.9rem">
+      <button class="btn btn--accent" id="selfTest">Run the self test</button>
+    </div>
+    <div class="admin__table" id="selfResults"></div>
+  </section>
+
+  <!-- ============ REPLAY ============ -->
+  <section class="roster">
+    <div class="log__head-row">
+      <h2 class="title">Replay a recording</h2>
+      <span class="hint" id="replayStatus">No file yet</span>
+    </div>
+
+    <div class="controls-row">
+      <div class="field">
+        <label for="videoFile">/ Recording</label>
+        <input id="videoFile" type="file" accept="video/*">
+      </div>
+      <div class="field">
+        <label for="stepInput">/ Sample every</label>
+        <input id="stepInput" type="number" min="0.1" max="2" step="0.1" value="0.5">
+      </div>
+      <button class="btn btn--accent" id="runReplay" disabled>Run the detector</button>
+      <button class="btn" id="stopReplay" hidden>Stop</button>
+    </div>
+
+    <div class="proctor__grid">
+      <div>
+        <div class="section-label">/ FRAME</div>
+        <div class="proctor__stage">
+          <video id="lab" muted playsinline></video>
+          <canvas id="labOverlay"></canvas>
+        </div>
+        <div class="meter" style="margin-top:0.75rem"><span class="meter__fill" id="replayFill"></span></div>
+        <p class="hint" id="replayNote">&nbsp;</p>
+      </div>
+
+      <div>
+        <div class="section-label">/ THRESHOLDS</div>
+        <div class="controls-row" style="margin-bottom:0">
+          <div class="field">
+            <label for="thMotion">/ Motion</label>
+            <input id="thMotion" type="number" step="0.1" value="2.4">
+          </div>
+          <div class="field">
+            <label for="thStill">/ Still seconds</label>
+            <input id="thStill" type="number" step="1" value="20">
+          </div>
+          <div class="field">
+            <label for="thSpike">/ Augment spike</label>
+            <input id="thSpike" type="number" step="1" value="14">
+          </div>
+        </div>
+        <p class="hint">Change these and run again on the same file: the point of a recording is that the comparison is fair.</p>
+
+        <div class="section-label" style="margin-top:1.5rem">/ WHAT ACTUALLY HAPPENED</div>
+        <p class="hint">Scrub the video, and each time an augment is taken, put in the time and which card. This is the ground truth everything is scored against.</p>
+        <form class="controls-row" id="truthForm" style="margin-top:0.75rem" novalidate>
+          <div class="field">
+            <label for="truthAt">/ Time (mm:ss)</label>
+            <input id="truthAt" type="text" placeholder="03:12" required>
+          </div>
+          <div class="field">
+            <label for="truthThird">/ Took</label>
+            <select id="truthThird">
+              <option value="left">left</option>
+              <option value="middle">middle</option>
+              <option value="right">right</option>
+            </select>
+          </div>
+          <button class="btn" type="submit">Add</button>
+        </form>
+        <div class="penalty__list" id="truthList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCORE ============ -->
+  <section class="stats">
+    <div class="section-label">/ SCORE</div>
+    <div class="stats__grid" id="scoreTiles"></div>
+    <p class="hint" id="scoreNote" style="margin-top:1rem">Run a replay and add what really happened to get a score.</p>
+  </section>
+
+  <section class="log">
+    <div class="log__head-row">
+      <h2 class="title">Events <span class="count" id="eventCount"></span></h2>
+      <div class="log__tools">
+        <button class="btn" id="exportRun">Export run</button>
+      </div>
+    </div>
+    <div class="admin__table" id="eventList"></div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot">
+      <span>TFT TOURNAMENT &middot; BUILT BY DEHPEH</span>
+      <span><a href="/proctor">PROCTOR</a></span>
+    </div>
+  </footer>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/lib/detect.js"></script>
+<script src="/assets/ui.js"></script>
+<script src="/assets/nav.js"></script>
+<script src="/assets/lab.js"></script>
+</body>
+</html>
