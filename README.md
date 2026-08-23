@@ -14,6 +14,10 @@ doc, then keeps the results.
 | `/proctor` | Optional: a player shares their game window and their own browser watches it |
 | `/lab` | Measure the proctor: self test, replay a recording, score it against what happened |
 
+**Why any of it works the way it does — including the calls that could have
+gone otherwise and the risks still open — is written down in
+[DECISIONS.md](DECISIONS.md).**
+
 Static HTML/CSS/JS plus a handful of serverless functions. No build step, no
 framework, no dependencies — same design language as
 [dehpeh.dev](https://dehpeh.dev): same tokens, same type, five themes including a monochrome dark one.
