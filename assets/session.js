@@ -370,8 +370,8 @@
      themselves — which shop slot, which stage. The randomizer fills it, so it
      is shown as something that was rolled rather than folded into the text. */
   function detailChip(pick) {
-    if (!pick.detail) return '';
-    return `<span class="detail" title="Rolled by the randomizer">${esc(pick.detail.label)}: <b>${esc(pick.detail.value)}</b></span>`;
+    return T.detailsOf(pick).map((d) =>
+      `<span class="detail" title="Rolled by the randomizer, not chosen">${esc(d.label)}: <b>${esc(d.value)}</b></span>`).join('');
   }
 
   /* Your own roll flickers in when it is new to you, so a restriction landing

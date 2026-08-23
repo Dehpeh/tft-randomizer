@@ -22,8 +22,8 @@
   /* Which shop slot, which stage: rolled by the randomizer, so it is shown as a
      result rather than folded into the restriction text. */
   function detailChip(pick) {
-    if (!pick.detail) return '';
-    return `<span class="detail">${esc(pick.detail.label)}: <b>${esc(pick.detail.value)}</b></span>`;
+    return T.detailsOf(pick).map((d) =>
+      `<span class="detail">${esc(d.label)}: <b>${esc(d.value)}</b></span>`).join('');
   }
 
   async function api(path, body) {

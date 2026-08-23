@@ -217,9 +217,8 @@
   function land(slot, pick) {
     slot.classList.remove('is-spinning');
     slot.classList.add('is-locked');
-    slot.querySelector('.slot__text').innerHTML = esc(pick.text) + (pick.detail
-      ? `<span class="detail">${esc(pick.detail.label)}: <b>${esc(pick.detail.value)}</b></span>`
-      : '');
+    slot.querySelector('.slot__text').innerHTML = esc(pick.text)
+      + T.detailsOf(pick).map((d) => `<span class="detail">${esc(d.label)}: <b>${esc(d.value)}</b></span>`).join('');
     const meta = slot.querySelector('.slot__meta');
     meta.textContent = pick.rerolls
       ? `${pick.rerolls} auto-reroll${pick.rerolls > 1 ? 's' : ''} for a clash`

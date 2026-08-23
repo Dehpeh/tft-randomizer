@@ -139,9 +139,15 @@ and 3 minor, since Challenger and Diamond could not be rolled otherwise.
 
 **Rolled details.** Some restrictions leave a blank a player would otherwise
 fill in themselves — which shop slot is locked, which stage you sit out, which
-augment is randomised. Left to the player that is a choice, and a choice is an
+augment you take. Left to the player that is a choice, and a choice is an
 advantage, so the randomizer fills it from the same seeded stream and shows it
 as a rolled result beside the restriction.
+
+The augment ones are rolled all the way down to the pick, because that is what
+makes them checkable: `1 augment is chosen randomly` comes out as **At 3-2,
+Take middle**, and `No augment freedom` names left/middle/right for all three
+stages. An umpire compares the augment taken against what is on the board — no
+asking the player what they meant to pick.
 
 **Closed lobbies.** Closing a lobby ends it: no new players, no rolls, no
 placements, no penalties, enforced server-side rather than only hidden in the

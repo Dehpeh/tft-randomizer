@@ -140,8 +140,8 @@
                 <span class="match__meta">${esc(rankName(g.rank))} · seed ${esc(g.seed)}</span>
               </header>
               ${g.picks.length ? `<ul class="pcard__list">${g.picks.map((k) => `
-                <li class="pcard__pick pcard__pick--${k.tier}"><b>${esc(k.tier)}</b><span>${esc(k.text)}${k.detail
-                  ? `<span class="detail">${esc(k.detail.label)}: <b>${esc(k.detail.value)}</b></span>` : ''}</span></li>`).join('')}</ul>`
+                <li class="pcard__pick pcard__pick--${k.tier}"><b>${esc(k.tier)}</b><span>${esc(k.text)}${T.detailsOf(k)
+                  .map((d) => `<span class="detail">${esc(d.label)}: <b>${esc(d.value)}</b></span>`).join('')}</span></li>`).join('')}</ul>`
                 : '<div class="pcard__waiting pcard__waiting--clean">Played clean — no restrictions</div>'}
             </article>`).join('')
             : '<div class="log__empty">No games yet.</div>'}
