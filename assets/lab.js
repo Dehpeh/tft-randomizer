@@ -97,7 +97,7 @@
 
   $('selfTest').addEventListener('click', () => {
     const draw = synthetic();
-    const det = D.createDetector({});
+    const det = D.createDetector({ detectStill: true, detectAugments: true });
     const seen = [];
     let t = 0;
     const step = 0.5;
@@ -232,6 +232,8 @@
     const step = Math.max(0.1, Number($('stepInput').value) || 0.5);
     const det = D.createDetector({
       region: state.region,
+      detectStill: true,
+      detectAugments: true,
       motionThreshold: Number($('thMotion').value) || D.DEFAULTS.motionThreshold,
       stillSeconds: Number($('thStill').value) || D.DEFAULTS.stillSeconds,
       augmentSpike: Number($('thSpike').value) || D.DEFAULTS.augmentSpike,
@@ -375,6 +377,58 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast('Run exported');
   });
+
+  /* Scripted access to the same functions the buttons call, so a run can be
+     driven from a console or a test harness rather than by hand. It adds no
+     capability the page does not already have. */
+  window.TFTLAB = {
+    state: state,
+    async loadUrl(src) {
+      video.src = src;
+      await new Promise((resolve, reject) => {
+        video.addEventListener('loadedmetadata', resolve, { once: true });
+        video.addEventListener('error', () => reject(new Error('could not load ' + src)), { once: true });
+      });
+      state.duration = video.duration;
+      state.file = { name: src };
+      $('replayStatus').textContent = src + ' · ' + clock(video.duration);
+      $('runReplay').disabled = false;
+      return { duration: video.duration, width: video.videoWidth, height: video.videoHeight };
+    },
+    setRegion(r) { state.region = Object.assign({}, r); drawOverlay(); return state.region; },
+    async run(opts) {
+      const o = opts || {};
+      const step = o.step || 1;
+      const from = o.from || 0;
+      const to = Math.min(o.to || state.duration, state.duration);
+      const det = D.createDetector(Object.assign({ region: state.region, detectStill: true, detectAugments: true }, o.config || {}));
+      const events = [];
+      state.running = true;
+      for (let t = from; t < to && state.running; t += step) {
+        await seek(t);
+        det.push(frameAt(), t).forEach((e) => events.push(e));
+      }
+      state.running = false;
+      state.events = events;
+      renderEvents();
+      return events;
+    },
+    stop() { state.running = false; },
+    /* Writes a frame to disk through the dev server so it can be looked at. */
+    async saveFrame(t, name) {
+      await seek(t);
+      const c = document.createElement('canvas');
+      c.width = Math.min(960, video.videoWidth);
+      c.height = Math.round(c.width * (video.videoHeight / video.videoWidth));
+      c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+      const res = await fetch('/dev-save', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: name, dataUrl: c.toDataURL('image/png') }),
+      });
+      return res.json();
+    },
+  };
 
   renderTruth();
   renderEvents();

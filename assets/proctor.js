@@ -34,6 +34,11 @@
 
   const D = window.TFTDetect;
 
+  /* Measured against four hours of real gameplay and found wanting — see the
+     header of lib/detect.js. Until the detectors are rebuilt on content rather
+     than motion, nothing here is fit to reach a gamemaster. */
+  const SENDING_ENABLED = false;
+
   /* Sampling twice a second is plenty: the events being watched for last
      seconds, not frames, and this has to share a machine with the game. */
   const SAMPLE_MS = 500;
@@ -469,6 +474,13 @@
   }
 
   $('sendFlags').addEventListener('click', async () => {
+    if (!SENDING_ENABLED) {
+      window.TFTUI.alert({
+        title: 'Sending is off',
+        body: 'The detections behind these notes were wrong too often on real footage to put in front of a gamemaster. The findings stay here for testing until that is fixed.',
+      });
+      return;
+    }
     const unsent = state.flags.filter((f) => !f.sent && (f.kind === 'inactive' || f.kind === 'augment'));
     if (!unsent.length) { toast('Nothing new to send'); return; }
     const ok = await window.TFTUI.confirm({

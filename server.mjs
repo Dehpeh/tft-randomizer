@@ -61,9 +61,60 @@ function resolveStatic(pathname) {
   return direct;
 }
 
+/* ---------- development-only helpers ----------
+   Both are gated on environment variables that are unset by default, and this
+   whole file is in .vercelignore, so none of it can reach a deployment. They
+   exist so the proctor lab can be pointed at a real recording that lives
+   outside the repo, and so frames it flags can be written out and looked at.
+
+   TFT_VIDEO   absolute path of one video file to serve at /dev-video
+   TFT_DEV_OUT directory that POST /dev-save may write PNGs into */
+const DEV_VIDEO = process.env.TFT_VIDEO || '';
+const DEV_OUT = process.env.TFT_DEV_OUT || '';
+
+async function serveVideo(req, res) {
+  const { statSync, createReadStream } = await import('node:fs');
+  let size;
+  try { size = statSync(DEV_VIDEO).size; } catch { res.writeHead(404).end('no video'); return; }
+
+  // Seeking needs range support, and the lab seeks constantly.
+  const range = req.headers.range;
+  if (!range) {
+    res.writeHead(200, { 'content-type': 'video/mp4', 'content-length': size, 'accept-ranges': 'bytes' });
+    createReadStream(DEV_VIDEO).pipe(res);
+    return;
+  }
+  const m = /bytes=(\d*)-(\d*)/.exec(range) || [];
+  const start = m[1] ? Number(m[1]) : 0;
+  const end = m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  res.writeHead(206, {
+    'content-type': 'video/mp4',
+    'content-range': `bytes ${start}-${end}/${size}`,
+    'accept-ranges': 'bytes',
+    'content-length': end - start + 1,
+  });
+  createReadStream(DEV_VIDEO, { start, end }).pipe(res);
+}
+
+async function saveFrame(req, res) {
+  const { writeFileSync } = await import('node:fs');
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  let body = {};
+  try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { /* bad json */ }
+  const name = String(body.name || 'frame').replace(/[^a-z0-9._-]/gi, '');
+  const data = String(body.dataUrl || '').split(',')[1] || '';
+  if (!name || !data) { res.writeHead(400).end('{"error":"name and dataUrl required"}'); return; }
+  writeFileSync(join(DEV_OUT, name), Buffer.from(data, 'base64'));
+  res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ saved: name }));
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const pathname = decodeURIComponent(url.pathname);
+
+  if (pathname === '/dev-video' && DEV_VIDEO) { await serveVideo(req, res); return; }
+  if (pathname === '/dev-save' && DEV_OUT && req.method === 'POST') { await saveFrame(req, res); return; }
 
   if (pathname.startsWith('/api/')) {
     await runFunction(pathname.slice(5).replace(/\/+$/, ''), req, res);

@@ -203,7 +203,7 @@ Gold at 4-2, locked shop slots and star levels are the obvious next ones. All
 three need digit and sprite templates calibrated against real footage at several
 UI scales — that calibration is the actual work, not the plumbing.
 
-## Measuring the proctor
+## Measuring the proctor — and what it found
 
 A detector nobody has scored is a guess, so  scores it. It runs the same
  the live page runs — measuring a copy would be worthless.
@@ -226,6 +226,31 @@ and the preset assumes the game fills the frame.
 found, named right, **named wrong**, said unsure, and false alarms. Named wrong
 is the number that matters near a prize: a confident wrong answer is worse than
 no answer. Nothing is uploaded; the video never leaves the machine.
+
+### The verdict on the first attempt
+
+A 4h21m stream VOD was replayed through it. Fifteen minutes of one game:
+
+| | Detected | Real |
+| --- | --- | --- |
+| Augment screens | 65 | 2 |
+
+A large sudden change in the middle of the screen is not distinctive in TFT.
+Combat, spectating another board, the camera moving and stream overlays all
+produce one. Raising the threshold only trades false alarms for missed augments:
+the signal is wrong, not mistuned. What marks an augment screen is its content —
+the dimmed board, three card panels, "Choose One" in a fixed place.
+
+Stillness looked better — zero false positives in fifteen minutes — until the
+reason showed up. Median frame-to-frame motion while playing was 8.6 against a
+threshold of 2.4, and that motion is the game animating, not the player acting.
+TFT never holds still, so a player doing nothing still produces a moving screen.
+Detecting AFK needs the parts that only move on input: the shop row, the gold
+counter, the bench.
+
+Both detectors are therefore **off by default** and the proctor cannot send
+anything to a gamemaster. The measuring rig is the part worth keeping: the next
+attempt gets judged the same way instead of guessed at.
 
 ## Organiser dashboard
 
