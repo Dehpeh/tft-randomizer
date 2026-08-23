@@ -1567,3 +1567,140 @@ button, input, select { font-weight: 300; }
 }
 
 .admin__lobby .admin__name a { border-bottom: 1px dotted var(--line); }
+
+/* ============ PROCTOR ============ */
+.controls-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.controls-row .field { min-width: 12rem; }
+
+.proctor__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 860px) { .proctor__grid { grid-template-columns: 1fr; } }
+
+/* The preview and its calibration overlay share one box, so a normalised
+   rectangle drawn on top lands on the same pixels the analyser reads. */
+.proctor__stage {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+
+.proctor__stage video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--panel); }
+.proctor__stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.proctor__stage canvas.is-arming { cursor: crosshair; background: rgba(240, 192, 120, 0.08); }
+
+.meter {
+  height: 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.meter__fill { display: block; height: 100%; width: 2%; background: var(--teal); transition: width 0.25s linear; }
+
+.findings { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+
+.finding {
+  background: var(--bg);
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  align-items: start;
+}
+
+.finding__shot { width: 148px; border: 1px solid var(--line); border-radius: 2px; display: block; }
+.finding__shot--none { height: 84px; background: var(--panel); }
+.finding__head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+
+.finding__at, .finding__sent {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--dim);
+}
+
+.finding__sent { color: var(--teal); }
+.finding__note { font-size: 0.98rem; color: var(--bright); letter-spacing: -0.03em; margin-top: 0.4rem; }
+
+@media (max-width: 620px) {
+  .finding { grid-template-columns: 1fr; }
+  .finding__shot { width: 100%; }
+}
+
+/* ============ PLAYER ROSTER LIST ============
+   The gamemaster needs a card per player because they act on each one. A player
+   only reads, so they get a line each: same information, a third of the height,
+   and their own restrictions stay the biggest thing on the page. */
+.rosterlist { margin-top: 0.25rem; border-top: 1px solid var(--line); }
+
+.rosterlist__row {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: 0.5rem 1rem;
+  padding: 0.7rem 0.2rem;
+  border-bottom: 1px dotted var(--line);
+  align-items: baseline;
+}
+
+.rosterlist__name {
+  font-size: 0.98rem;
+  letter-spacing: -0.04em;
+  color: var(--bright);
+  overflow-wrap: anywhere;
+}
+
+.rosterlist__picks { font-size: 0.9rem; color: var(--bright); line-height: 1.6; letter-spacing: -0.03em; }
+.rosterlist__pick { margin-right: 0.9rem; white-space: normal; }
+
+.rosterlist__tier {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  border: 1px dotted currentColor;
+  padding: 1px 4px;
+  margin-right: 0.35rem;
+}
+
+.rosterlist__tier--major { color: var(--red); }
+.rosterlist__tier--minor { color: var(--dim); }
+
+.rosterlist__clean, .rosterlist__waiting {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--dim);
+}
+
+.rosterlist__clean { color: var(--teal); }
+
+/* A heading that folds a section away says so. */
+.title--toggle { cursor: pointer; }
+.title--toggle::after { content: " ⌄"; font-size: 0.5em; vertical-align: 0.35em; color: var(--dim); }
+
+@media (max-width: 620px) {
+  .rosterlist__row { grid-template-columns: 1fr; }
+}
+
+/* A proctor note is a machine observation; a penalty is a human decision. They
+   read differently on purpose. */
+.penalty--flag { color: var(--dim); border-left-color: var(--line); }

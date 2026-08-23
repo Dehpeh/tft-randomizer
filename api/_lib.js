@@ -89,7 +89,8 @@ function newSession(code, name) {
     players: {},         // id -> seat
     rolls: {},           // game -> { playerId -> roll }
     results: {},         // game -> { placements: { playerId -> 1..8 }, at, by }
-    penalties: [],       // { id, playerId, game, reason, at, by }
+    penalties: [],       // { id, playerId, game, reason, at, by }  — human decisions
+    flags: [],           // { playerId, game, kind, note, at }      — machine observations
     v: 0,
   };
 }
@@ -123,6 +124,7 @@ function publicSession(session, viewerId) {
     rolls: session.rolls,
     results: session.results || {},
     penalties: session.penalties || [],
+    flags: session.flags || [],
     you: viewerId || null,
     isGm: Boolean(viewerId && session.players[viewerId] && session.players[viewerId].isGm),
   };

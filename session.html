@@ -124,9 +124,10 @@
           <div class="section-label">/ LOBBY</div>
           <h1 class="title" id="boardName">Lobby</h1>
         </div>
-        <div class="lobby__meta">
+        <div class="lobby__meta" id="lobbyMetaBar">
           <span class="lobby__code" id="boardCode">------</span>
           <button class="btn" id="copyLink">Copy invite link</button>
+          <a class="btn" id="proctorLink" href="/proctor">Proctor</a>
           <a class="btn" href="/session">All lobbies</a>
         </div>
       </div>
@@ -179,6 +180,10 @@
           <button class="btn" type="submit">Record penalty</button>
         </form>
         <div class="penalty__list" id="penaltyList"></div>
+
+        <div class="section-label" style="margin-top:1.5rem">/ PROCTOR NOTES</div>
+        <p class="hint">Sent by players' own machines while they play: long still spells, augment screens. Observations, not accusations &mdash; a note here is a place to look, not a verdict.</p>
+        <div class="penalty__list" id="flagList"></div>
       </div>
 
       <div class="gmpanel__pool" id="poolPanel" hidden>
@@ -198,18 +203,19 @@
 
     <section class="roster">
       <div class="log__head-row">
-        <h2 class="title">Lobby <span class="count" id="rosterCount"></span></h2>
+        <h2 class="title" id="rosterTitle">Lobby <span class="count" id="rosterCount"></span></h2>
         <div class="log__tools">
           <button class="btn" id="copyBoard">Copy for Discord</button>
         </div>
       </div>
       <div class="roster__grid" id="rosterGrid"></div>
+      <div class="rosterlist" id="rosterList"></div>
     </section>
 
     <section class="standings">
       <div class="log__head-row">
-        <h2 class="title">Standings</h2>
-        <span class="hint">1st = 8 points &middot; 8th = 1 point</span>
+        <h2 class="title" id="standingsToggle">Standings</h2>
+        <span class="hint" id="standingsNote">1st = 8 points &middot; 8th = 1 point</span>
       </div>
       <div class="standings__table" id="standingsTable"></div>
     </section>

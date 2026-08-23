@@ -20,6 +20,7 @@
     game: 1,
     followGame: true,
     poolOpen: false,
+    standingsOpen: false,
     authMode: 'login',
     lastSeed: null,   // your own roll, so a new one animates
     dirtyPlacements: null,
@@ -226,7 +227,7 @@
     if (view.timer) return;
     view.timer = setInterval(() => {
       if (document.hidden) return;
-      refresh(false).catch(() => { /* offline for a beat; next tick retries */ });
+      refresh(false).catch((err) => console.warn('poll failed:', err));
     }, POLL_MS);
   }
 
@@ -236,7 +237,7 @@
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && view.session) refresh(false).catch(() => {});
+    if (!document.hidden && view.session) refresh(false).catch((err) => console.warn('refresh failed:', err));
   });
 
   /* ---------- dashboard ---------- */
@@ -249,7 +250,21 @@
     $('boardName').textContent = s.name;
     $('boardCode').textContent = s.code;
     $('gmPanel').hidden = !s.isGm;
-    $('rosterCount').textContent = `(${s.players.length})`;
+
+    /* A player is here to read two things: what they are carrying and what
+       everyone else is. The lobby's plumbing — the invite link, the seeds, the
+       whole roster grid — is gamemaster furniture, so they get a list instead of
+       a card wall and the standings fold away. */
+    $('copyLink').hidden = !s.isGm;
+    $('rosterGrid').hidden = !s.isGm;
+    $('rosterList').hidden = s.isGm;
+    $('rosterTitle').innerHTML = s.isGm
+      ? `Lobby <span class="count" id="rosterCount">(${s.players.length})</span>`
+      : 'Everyone else';
+    $('standingsTable').hidden = !s.isGm && !view.standingsOpen;
+    $('standingsToggle').classList.toggle('title--toggle', !s.isGm);
+    const rosterCount = $('rosterCount');
+    if (rosterCount) rosterCount.textContent = `(${s.players.length})`;
     $('boardStatus').textContent = s.open ? 'LOBBY OPEN' : 'LOBBY CLOSED';
 
     /* A closed lobby is a record, not a live board: it dims, says so at the top,
@@ -294,6 +309,15 @@
       ? `<button type="button" class="gametab gametab--add" data-game="${Math.max(...list) + 1}">+ Game ${Math.max(...list) + 1}</button>`
       : '');
   }
+
+  /* Folded away by default for a player: it matters between games, never during
+     one. Their own position stays on the label so folding costs them nothing. */
+  $('standingsToggle').addEventListener('click', () => {
+    if (view.session && view.session.isGm) return;
+    view.standingsOpen = !view.standingsOpen;
+    $('standingsTable').hidden = !view.standingsOpen;
+    renderStandings();
+  });
 
   $('closedBanner').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-closed]');
@@ -398,8 +422,40 @@
     });
   }
 
+  /* One line per player: name, then everything they are carrying, rolled
+     details included. Same information as the cards, a third of the height. */
+  function renderRosterList() {
+    const s = view.session;
+    const rolls = s.rolls[view.game] || {};
+    const places = placementsFor(view.game);
+
+    const others = s.players.filter((p) => p.id !== s.you);
+    if (!others.length) {
+      $('rosterList').innerHTML = '<div class="log__empty">Nobody else has taken a seat yet.</div>';
+      return;
+    }
+
+    $('rosterList').innerHTML = others.map((p) => {
+      const roll = rolls[p.id];
+      const place = places[p.id];
+      const picks = roll && roll.picks.length
+        ? roll.picks.map((k) => `<span class="rosterlist__pick">
+            <b class="rosterlist__tier rosterlist__tier--${k.tier}">${k.tier === 'major' ? 'maj' : 'min'}</b>${esc(k.text)}${detailChip(k)}</span>`).join('')
+        : roll
+          ? '<span class="rosterlist__clean">plays clean</span>'
+          : '<span class="rosterlist__waiting">not rolled yet</span>';
+
+      return `<div class="rosterlist__row">
+        <span class="rosterlist__name">${esc(p.display)}${p.isGm ? ' <span class="tag tag--gm">GM</span>' : ''}
+          ${place ? `<span class="place place--${place <= 4 ? 'top' : 'bot'}">${ordinal(place)}</span>` : ''}</span>
+        <span class="rosterlist__picks">${picks}</span>
+      </div>`;
+    }).join('');
+  }
+
   function renderRoster() {
     const s = view.session;
+    if (!s.isGm) { renderRosterList(); return; }
     const rolls = s.rolls[view.game] || {};
     const places = placementsFor(view.game);
 
@@ -462,6 +518,7 @@
 
     if (!games.length) {
       $('standingsTable').innerHTML = '<div class="log__empty">No placements submitted yet.</div>';
+      $('standingsNote').textContent = '1st = 8 points · 8th = 1 point';
       return;
     }
 
@@ -475,6 +532,11 @@
       const avg = played.length ? played.reduce((sum, r) => sum + r.place, 0) / played.length : null;
       return { p, played, points, avg };
     }).sort((a, b) => b.points - a.points || (a.avg || 9) - (b.avg || 9));
+
+    const you = rows.find((r) => r.p.id === s.you);
+    $('standingsNote').textContent = s.isGm || !you || !you.played.length
+      ? '1st = 8 points · 8th = 1 point'
+      : `You are ${ordinal(rows.indexOf(you) + 1)} · ${you.points} pts`;
 
     $('standingsTable').innerHTML = `
       <div class="standings__head">
@@ -629,7 +691,25 @@
     $('minorCount').textContent = `(${T.MINOR.filter((r) => !off.has(r.id)).length}/${T.MINOR.length})`;
     $('poolPanel').hidden = !view.poolOpen;
     renderPenalties();
+    renderFlags();
   }
+
+  /* Machine notes, kept visually apart from penalties: one is an observation,
+     the other is a decision, and confusing them would be unfair to players. */
+  function renderFlags() {
+    const s = view.session;
+    const list = (s.flags || []).filter((f) => f.game === view.game);
+    $('flagList').innerHTML = list.length
+      ? list.slice().reverse().map((f) => {
+        const who = (s.players.find((x) => x.id === f.playerId) || {}).display || f.playerId;
+        return `<div class="penalty penalty--flag">
+          <span>${esc(who)} · ${clockText(f.at)} — ${esc(f.note)}</span>
+        </div>`;
+      }).join('')
+      : '<div class="log__empty">No proctor notes for this game.</div>';
+  }
+
+  const clockText = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
   function renderPenalties() {
     const s = view.session;

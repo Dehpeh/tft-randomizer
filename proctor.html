@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proctor — TFT</title>
+<meta name="description" content="Share your game window and let your own browser watch for restriction slips.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/styles.css">
+<script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('tft.theme');if(t&&t!=='light')document.documentElement.setAttribute('data-theme',t);if(matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('motion-reduced');}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23011627'/><rect x='3' y='3' width='10' height='4' fill='%23F0C078'/><rect x='3' y='9' width='4' height='4' fill='%23EF5350'/><rect x='9' y='9' width='4' height='4' fill='%2375D1C4'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar__flag" href="/" aria-label="Home">
+    <svg viewBox="0 0 20 14" width="20" height="14" aria-hidden="true"><rect width="20" height="14" fill="var(--teal)"/><rect x="2" y="2" width="16" height="10" fill="var(--panel)"/><rect x="4" y="4" width="12" height="2" fill="var(--teal)"/><rect x="8" y="8" width="4" height="2" fill="var(--teal)"/></svg>
+  </a>
+  <nav class="topbar__nav" aria-label="Primary">
+    <a href="/session"><span class="key">[G]</span> <span class="lbl">LOBBIES</span></a>
+    <a href="/me"><span class="key">[M]</span> <span class="lbl">MY MATCHES</span></a>
+  </nav>
+  <span id="navAccount"></span>
+  <select class="topbar__theme" id="themePicker" aria-label="Theme"></select>
+</header>
+
+<main id="top">
+
+  <section class="hero hero--tight">
+    <span class="plus" style="top:1.5rem;left:0.5rem">+</span>
+    <span class="plus" style="top:1.5rem;right:0.5rem;--d:0.8s">+</span>
+    <h1 class="hero__title">Proctor <em>beta</em></h1>
+    <p class="hero__sub">Share your game window and this page watches it for you &mdash; timing the rounds you sat out, catching the augment screens, and noting what to check afterwards.</p>
+  </section>
+
+  <section class="gate">
+    <div class="gate__grid">
+      <div class="gate__card">
+        <div class="section-label">/ WHAT IT DOES</div>
+        <p class="gate__blurb">Reads pixels from the window you pick, a couple of frames a second, and looks at a few fixed spots: has anything moved, has the augment screen opened. It never touches the game &mdash; same browser feature a video call uses to share a screen.</p>
+      </div>
+      <div class="gate__card">
+        <div class="section-label">/ WHERE IT GOES</div>
+        <p class="gate__blurb">The video never leaves your machine. Screenshots stay in this tab and vanish when you close it. Only short text notes &mdash; &ldquo;still for 41 seconds&rdquo; &mdash; go to your gamemaster, and only when you send them.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="gmpanel" id="setup">
+    <div class="section-label">/ SETUP</div>
+    <div class="controls-row">
+      <div class="field">
+        <label for="lobbySelect">/ Lobby</label>
+        <select id="lobbySelect"></select>
+      </div>
+      <div class="field">
+        <label for="gameSelect">/ Game</label>
+        <select id="gameSelect"></select>
+      </div>
+      <button class="btn btn--accent" id="startBtn">Share my game window</button>
+      <button class="btn" id="stopBtn" hidden>Stop</button>
+    </div>
+    <p class="hint" id="setupHint">Pick the TFT window itself rather than the whole screen &mdash; less to watch, and nothing else of yours is ever in frame.</p>
+    <p class="notice" id="setupError" hidden></p>
+  </section>
+
+  <!-- ============ LIVE ============ -->
+  <section class="roster" id="live" hidden>
+    <div class="log__head-row">
+      <h2 class="title">Watching</h2>
+      <span class="hint" id="liveClock">00:00</span>
+    </div>
+
+    <div class="proctor__grid">
+      <div>
+        <div class="section-label">/ WHAT IT SEES</div>
+        <div class="proctor__stage">
+          <video id="preview" muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <p class="hint" id="calibHint">Drag on the picture to mark the augment area: the middle band where the three augment cards appear. Everything else is watched whole-screen.</p>
+        <div class="gmpanel__row" style="margin-top:0.75rem">
+          <button class="btn" id="calibBtn">Mark the augment area</button>
+          <button class="btn" id="calibClear">Clear</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">/ ACTIVITY</div>
+        <div class="meter"><span class="meter__fill" id="motionFill"></span></div>
+        <p class="hint" id="motionNote">&nbsp;</p>
+        <div class="stats__grid" id="liveTiles" style="margin-top:1rem"></div>
+        <div class="section-label" style="margin-top:1.5rem">/ YOUR RESTRICTIONS</div>
+        <div id="myRules"><p class="hint">Sign in and pick a lobby to see what you are carrying.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINDINGS ============ -->
+  <section class="log" id="findings" hidden>
+    <div class="log__head-row">
+      <h2 class="title">Findings <span class="count" id="findingCount"></span></h2>
+      <div class="log__tools">
+        <button class="btn btn--accent" id="sendFlags">Send to gamemaster</button>
+        <button class="btn" id="clearFlags">Clear</button>
+      </div>
+    </div>
+    <p class="hint">Screenshots are kept in this tab so you can check them yourself. Sending shares the notes only &mdash; never the pictures.</p>
+    <div class="findings" id="findingList"></div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot">
+      <span>TFT TOURNAMENT &middot; BUILT BY DEHPEH</span>
+      <span><a href="/session">YOUR LOBBY</a></span>
+    </div>
+  </footer>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/lib/restrictions.js"></script>
+<script src="/assets/ui.js"></script>
+<script src="/assets/nav.js"></script>
+<script src="/assets/proctor.js"></script>
+</body>
+</html>

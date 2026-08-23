@@ -11,6 +11,7 @@ doc, then keeps the results.
 | `/me` | Your account: matches, placements, and what each restriction costs you |
 | `/roller` | Solo roller — same engine, no account, nothing saved server-side |
 | `/organiser` | Organiser dashboard — every player, lobby and result (needs `ADMIN_KEY`) |
+| `/proctor` | Optional: a player shares their game window and their own browser watches it |
 
 Static HTML/CSS/JS plus a handful of serverless functions. No build step, no
 framework, no dependencies — same design language as
@@ -171,6 +172,33 @@ server-side from the same documents the gamemaster sees.
 
 **The server rolls.** A player's browser never decides its own restrictions,
 cannot claim a rank it was not given, and cannot submit its own placement.
+
+## Proctor (beta)
+
+Opt-in, and deliberately modest about what it claims. A player opens
+, shares their TFT window through the browser's own screen-share
+API, and their machine measures a few things twice a second:
+
+- **Stillness.** Frame differencing needs no calibration and cannot really be
+  wrong: if nothing changed for forty seconds, they were not playing. That is
+  the AFK restrictions covered.
+- **Augment screens.** The augment overlay is a large, sudden, sustained change
+  in the middle of the screen. Catching the moment is reliable; deciding which
+  of the three cards was clicked is not, without templates calibrated per
+  resolution. So it captures the screen and quotes what the roll said to take —
+  a two-second check for a human instead of watching eight streams.
+
+It never touches the game: no memory reads, no injected input, no overlay, no
+file near the client. It is the API a video call uses to share a screen.
+
+The video never leaves the machine. Screenshots live in the tab and die with it.
+Only short text notes are sent, and only when the player sends them. Notes land
+in the gamemaster's panel marked as observations, kept visually separate from
+penalties, which stay a human decision.
+
+Gold at 4-2, locked shop slots and star levels are the obvious next ones. All
+three need digit and sprite templates calibrated against real footage at several
+UI scales — that calibration is the actual work, not the plumbing.
 
 ## Organiser dashboard
 
