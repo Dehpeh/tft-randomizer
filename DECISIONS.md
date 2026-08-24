@@ -302,6 +302,81 @@ The physical ones — hands, layers of clothing, drinking — are deliberately o
 of scope: watching them would mean a webcam, and the constraint from the start
 was that this streams the game and nothing else.
 
+**The augment detector was blind above 720p, and nothing had caught it.** A
+full 36-minute game, played at 1440p and captured by OBS to 1080p, produced
+zero augment detections. The detector that 4h21m of footage had called proven,
+and that an on-device test had confirmed, found nothing at all.
+
+It was not blind, it was mis-scaled. The three real augment screens scored
+0.50, 0.55 and 0.57 against a threshold of 0.60 — above every real screen and
+below nothing — while the rest of the game stayed under 0.31. The signal was
+intact; only the number was wrong.
+
+The cause was the resampling. `crop()` took the nearest source pixel per
+template cell. On the 360p stream the template came from, the augment region
+is about 128x29 going into 64x14, a 2x reduction that loses almost nothing. At
+1080p the same region is about 384x86 — a 6x reduction, where taking one pixel
+in six off thin white lettering is a coin toss per stroke. Averaging every
+source pixel in the cell instead, with the same template and the same frames:
+
+| Footage | Nearest-neighbour | Area-averaged | Noise floor |
+| --- | --- | --- | --- |
+| 1080p capture | 0.50-0.57 | **0.93-0.97** | 0.28 |
+| 360p reference | 0.78-0.83 | **0.95-0.98** | 0.38 |
+
+Both got better, including the footage the template was built from, which is
+what a correct resampling fix should do. Rescanning the full game after it:
+three augment screens, three detections, nothing false in 2,195 frames.
+
+**The obvious fix would have hidden the bug again.** Rebuilding the template
+from the 1080p footage scored 0.95-0.99 on it and would have shipped a
+detector that worked at one resolution and silently failed at another — the
+same failure, moved. What ruled it out was knowing the game ran at 1440p and
+OBS wrote 1080p, which pointed at scaling rather than at the picture.
+
+**The trait panel took three attempts, and the first two both looked right.**
+
+1. *Warm and saturated.* Active traits are bronze and gold, inactive ones grey.
+   Bronze is warm; silver, chromatic and prismatic are not. Measured on a real
+   panel, an active Elderwood at silver sits at saturation 0.32 where the rule
+   wanted 0.45 and a warm hue — every high tier was invisible. One game: 21
+   false Built Different windows, 143 false activations.
+2. *Hexagon against the gap beneath it.* Local contrast beats absolute
+   brightness, and it does — over a mid-tone board. The panel is translucent,
+   and over a bright sky the gaps are brighter than the hexagons, so every
+   comparison goes negative and a frame with nine active traits reads as zero.
+3. *Saturation, read as a run down the column.* An active hexagon is coloured
+   whichever tier it is; an inactive one is grey; and sky, grass, lava and
+   water do not make a grey hexagon coloured. Rows are not counted
+   individually at all — pitch errors compound down a column of ten, and
+   eyeballing it was worth two wrong answers already. TFT sorts active traits
+   to the top, so the answer is how far the colour runs before it stops.
+
+Across the full game that gives 69 frames reading "nothing active" out of
+1,090: 62 in the first three minutes where it is true, four on the post-game
+screen, and three isolated frames in between — none of which survives the
+detector's two-sample hysteresis.
+
+**What it still cannot do is count.** The run stops when the colour stops, and
+below the last trait there is no panel, there is board — which is also
+coloured. A nine-trait panel over open ground runs on to twelve. That is why
+the banned-trait rule gets no detector: it needs to name one specific trait,
+counting activations was the workaround, and a count that drifts by a trait
+between frames makes "the count went up" fire on the drift. The panel prints
+trait names in plain text, so a person reading a clip settles it in a second.
+Built Different is unaffected, because the run starts at the top: an all-grey
+panel stops at zero no matter what is underneath it.
+
+**Three failures in one session, all of the same kind.** A hidden browser pane
+freezes the video texture, so `drawImage` returns one stale frame while
+`readyState` still reads 4 and `currentTime` still advances — an entire
+evaluation came back with every frame scoring identically and a rebuilt
+template scoring a perfect 1.00 on ordinary play, which is a template that
+matches nothing. The dev server leaked a file handle per range request and
+died of EMFILE partway through a ten-minute scan. And the resampling above.
+None announced itself; each looked like a result until it was checked. Every
+scan now fingerprints its frames and refuses to report a run that repeated one.
+
 **Why `/lab` exists.** A detector nobody has scored is a guess. It replays a
 recording through the exact same `lib/detect.js` the live page runs — measuring
 a copy would be worthless — and scores it against what a human says happened.
