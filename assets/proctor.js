@@ -34,6 +34,9 @@
 
   const D = window.TFTDetect;
 
+  /* Anything this player calibrated in the lab applies here too. */
+  if (window.TFTMatchers) window.TFTMatchers.loadLocal();
+
   /* Augment-screen detection is measured and reliable (see lib/detect.js);
      stillness is not, and stays off. */
   const SENDING_ENABLED = true;
@@ -383,6 +386,14 @@
        which card was taken is left to whoever looks at the picture, because
        nothing in the pixels reliably says — motion across the three cards at
        the moment of choosing measured 33/33/33 on real footage. */
+    if (e.kind === 'match-open') {
+      shoot();
+      addFlag('note', e.label + ' seen', e.at);
+    }
+    if (e.kind === 'match-close') {
+      shoot();
+      addFlag('note', e.label + ' ended after ' + e.openFor + 's', e.at);
+    }
     if (e.kind === 'augment-open') {
       shoot();
       addFlag('augment', 'Augment screen' + rolledPick(), e.at);

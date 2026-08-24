@@ -388,6 +388,74 @@
     toast('Run exported');
   });
 
+  /* ---------- calibration ----------
+     The whole reason the augment matcher works is that someone pointed at the
+     thing on screen and said "that". This is that, as a button: everything the
+     proctor cannot yet watch is waiting on a picture, not on code. */
+
+  const M = window.TFTMatchers;
+  M.loadLocal();
+
+  function renderMatchers() {
+    const pick = $('matcherPick');
+    const keep = pick.value;
+    pick.innerHTML = M.MATCHERS.map((m) =>
+      `<option value="${m.id}">${esc(m.label)}${m.template ? ' ✓' : ' — needs a picture'}</option>`).join('');
+    if (keep) pick.value = keep;
+
+    $('matcherList').innerHTML = M.MATCHERS.map((m) => `
+      <div class="admin__lobby">
+        <span class="tag ${m.template ? 'tag--live' : 'tag--closed'}">${m.template ? 'ready' : 'waiting'}</span>
+        <span class="admin__name" style="font-size:0.95rem">${esc(m.label)}</span>
+        <span class="admin__nums">${esc(m.watches)}<br>${esc(m.evidence)}</span>
+      </div>`).join('');
+  }
+
+  function currentMatcher() { return M.byId($('matcherPick').value) || M.MATCHERS[0]; }
+
+  /* The box is drawn on the preview so it is obvious whether it lands on the
+     thing before anything is captured. */
+  function showMatcherBox() {
+    const m = currentMatcher();
+    state.region = Object.assign({}, m.region);
+    drawOverlay();
+  }
+
+  $('matcherPick').addEventListener('change', showMatcherBox);
+
+  $('matcherShow').addEventListener('click', async () => {
+    const at = parseClock($('matcherAt').value);
+    if (at === null) { window.TFTUI.fieldError($('matcherAt'), 'Use mm:ss, like 07:31.'); return; }
+    await seek(at);
+    showMatcherBox();
+    $('matcherNote').textContent = `Showing ${clock(at)}. Drag on the picture if the box is off the mark.`;
+  });
+
+  $('matcherTest').addEventListener('click', () => {
+    const m = currentMatcher();
+    if (!m.template) { $('matcherNote').textContent = 'Nothing to score against yet — capture it first.'; return; }
+    const probe = Object.assign({}, m, { region: state.region });
+    const sc = M.score(frameAt(), probe);
+    $('matcherNote').textContent = `This frame scores ${sc.toFixed(2)} against "${m.label}". Above ${m.threshold} counts as a sighting.`;
+  });
+
+  $('matcherCapture').addEventListener('click', async () => {
+    const m = currentMatcher();
+    const tpl = M.capture(frameAt(), state.region, m.w, m.h);
+    M.saveLocal(m.id, tpl, state.region);
+    renderMatchers();
+
+    /* Captured from one frame is a weak template — the augment one was averaged
+       over five. Say so rather than let a single frame look authoritative. */
+    $('matcherNote').textContent = `Captured "${m.label}" from this frame and saved it for this browser. One frame is a weak template: run the replay to see whether it holds, and capture again at another sighting if it does not.`;
+    const out = $('matcherOut');
+    out.hidden = false;
+    out.value = JSON.stringify({ id: m.id, region: state.region, w: m.w, h: m.h, template: tpl }, null, 2);
+  });
+
+  renderMatchers();
+  showMatcherBox();
+
   /* Scripted access to the same functions the buttons call, so a run can be
      driven from a console or a test harness rather than by hand. It adds no
      capability the page does not already have. */

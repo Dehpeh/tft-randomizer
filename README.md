@@ -331,6 +331,7 @@ are the `RANKS` array in the same file.
 | `me.html`, `assets/me.js` | Account, match history, stats |
 | `assets/nav.js` | Theme switch and account chip, shared by every page |
 | `lib/restrictions.js` | Restriction pool, rank table, seeded roll engine (browser + server) |
+| `lib/matchers.js` | What the proctor looks for: one picture of one thing in one place |
 | `assets/styles.css` | Design tokens and components, lifted from dehpeh.dev |
 | `api/auth.js` | Register, sign in, sign out, set your own rank |
 | `api/create.js` | Open a lobby, become its gamemaster |

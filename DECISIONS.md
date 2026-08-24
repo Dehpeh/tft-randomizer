@@ -138,6 +138,20 @@ motion is the game animating, not the player acting. TFT never holds still, so a
 player doing nothing still produces a moving screen. Catching AFK needs the parts
 that only move on input — shop row, gold counter, bench — and that is not built.
 
+**Four more restrictions were asked for and are declared, not calibrated.** The
+same trick — find the distinctive thing, crop it, compare it — extends to the
+carousel, the gold counter at 4-2, an empty trait panel and 3-star pips. Each is
+defined in  with the region it lives in, and each is waiting on
+a picture rather than on code. The reason they are not calibrated is measured:
+in the only footage available (a 640x360 YouTube copy) the augment text is
+128x29px while a gold digit is 8x11, a trait hexagon 14x13 and a star pip 5x4.
+At the 1080p a player actually captures those become 23x32, 42x38 and 15x13 —
+workable. Calibrating against the small copy would produce numbers that look
+fine and do not transfer, which is precisely what the first motion detector did.
+So the lab grew a capture tool instead: scrub to the moment, check the box lands
+on the thing, press capture. Thirty seconds per restriction, on footage at the
+resolution it will really run at.
+
 **Constraints that shaped it**, all from the tournament side:
 
 - It must not touch the game. `getDisplayMedia` reads pixels the OS already

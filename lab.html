@@ -130,6 +130,28 @@
     </div>
   </section>
 
+  <!-- ============ CALIBRATE ============ -->
+  <section class="gmpanel">
+    <div class="section-label">/ CALIBRATE A MATCHER</div>
+    <p class="hint">Each restriction the proctor can watch is one picture of one thing in one place. Scrub the recording to the moment &mdash; a carousel round, the gold counter reading zero, a board with no trait active &mdash; pick the matcher, check the box lands on it, and capture. It is saved for this browser straight away; the string below goes into <code>lib/matchers.js</code> to ship it to everyone.</p>
+    <div class="controls-row" style="margin-top:1rem">
+      <div class="field">
+        <label for="matcherPick">/ Matcher</label>
+        <select id="matcherPick"></select>
+      </div>
+      <div class="field">
+        <label for="matcherAt">/ At (mm:ss)</label>
+        <input id="matcherAt" type="text" placeholder="07:31">
+      </div>
+      <button class="btn" id="matcherShow">Show me that frame</button>
+      <button class="btn btn--accent" id="matcherCapture">Capture</button>
+      <button class="btn" id="matcherTest">Score this frame</button>
+    </div>
+    <p class="hint" id="matcherNote">&nbsp;</p>
+    <div class="admin__table" id="matcherList"></div>
+    <textarea id="matcherOut" class="admin__search" style="width:100%;height:5rem;margin-top:1rem;font-size:0.65rem" readonly hidden></textarea>
+  </section>
+
   <!-- ============ SCORE ============ -->
   <section class="stats">
     <div class="section-label">/ SCORE</div>
@@ -158,6 +180,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="/lib/matchers.js"></script>
 <script src="/lib/detect.js"></script>
 <script src="/assets/ui.js"></script>
 <script src="/assets/nav.js"></script>
