@@ -278,6 +278,15 @@ button, input, select { font-weight: 300; }
   line-height: 1.6;
 }
 
+/* The one thing on the page a player must not skim: what leaves their machine
+   and when. Same voice as the rest, enough weight to be read. */
+.hint--strong {
+  color: var(--fg);
+  border-left: 2px solid var(--teal);
+  padding-left: 0.85rem;
+  margin-top: 0.9rem;
+}
+
 /* ============ HERO ============ */
 .hero {
   position: relative;

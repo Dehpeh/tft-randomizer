@@ -6,10 +6,24 @@
        same API a video call uses. No memory, no input, no overlay, no file
        anywhere near the client. If OBS is safe, so is this.
      - The video must not leave the machine. Frames go to a canvas, get measured,
-       and are discarded. Screenshots live in this tab and die with it. Only
-       short text notes are ever sent, and only when the player sends them.
-     - It flags, it does not judge. Everything here produces "look at 04:12",
-       never "guilty". A penalty stays a human decision made by a gamemaster.
+       and are discarded. The video stream is never uploaded. What is sent is a
+       short note and one still of the flagged moment.
+     - Findings are not the player's to hold. They go as they are made, with no
+       send step and nothing to delete, because a finding somebody can decide
+       whether to forward is a submission rather than evidence, and the one it
+       would occur to them to keep back is the one worth having. The control
+       that stays with the player is whether the proctor is running at all —
+       and the disclosure sits on the start screen, before the share, which is
+       the last point where the answer is genuinely theirs.
+     - It flags, it does not judge, and this is the important one. Every detector
+       here reports that something HAPPENED, not that a rule was broken. It sees
+       an augment screen open and close; it does not know whether the augment
+       taken was the one that was rolled. It sees a card leave the shop; it does
+       not know what stage it was. The two exceptions are structural rather than
+       clever: a locked slot either survived the reroll or it did not, and a
+       1-cost either was still sitting there when the shop changed or it was
+       not. Everything else is "look at 04:12", and the judgement is a
+       gamemaster's.
 
    What it can actually tell you, honestly:
 
@@ -605,7 +619,7 @@
   }
 
   function addFlag(kind, note, at, seconds) {
-    const flag = { kind, note, at: Math.round(at || 0), seconds: seconds || 0, shot: state.pendingShot || null, sent: false };
+    const flag = { kind, note, at: Math.round(at || 0), seconds: seconds || 0, shot: state.pendingShot || null, sent: false, tries: 0 };
     state.pendingShot = null;
     state.flags.push(flag);
     if (state.flags.length > MAX_SHOTS) {
@@ -613,7 +627,66 @@
       if (dropped) dropped.shot = null;
     }
     renderFlags();
+
+    /* Straight out, without being asked.
+
+       A finding the player decides whether to forward is not evidence, it is a
+       submission — and the one it would occur to somebody to hold back is
+       exactly the one worth having. There is a cash prize on this, so the
+       moment a screenshot is taken it belongs to the gamemaster.
+
+       What the player still controls is the only thing that should be theirs:
+       whether the proctor is watching at all. Stop the share and nothing more
+       is captured. Everything captured before that has already gone. */
+    flush();
   }
+
+  /* One sender at a time, with the queue retried until it drains, so a dropped
+     connection delays a finding rather than losing it. */
+  let sending = false;
+
+  async function flush() {
+    if (sending || !state.code) return;
+    const queue = state.flags.filter((f) => !f.sent && f.tries < 6);
+    if (!queue.length) return;
+    sending = true;
+    let sent = 0;
+
+    try {
+      for (const f of queue) {
+        f.tries += 1;
+        try {
+          if (f.shot) {
+            const res = await fetch('/api/evidence', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ code: state.code, game: state.game, kind: f.kind, note: f.note, at: f.at, image: f.shot }),
+            });
+            if (res.ok) { f.sent = true; sent += 1; continue; }
+            /* Out of room for pictures, or one too big: the words still go. */
+            f.shot = null;
+          }
+          const res = await fetch('/api/flag', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              code: state.code,
+              game: state.game,
+              flags: [{ kind: f.kind, note: f.note, at: f.at, seconds: f.seconds }],
+            }),
+          });
+          if (res.ok) { f.sent = true; sent += 1; }
+        } catch (e) { /* offline; the retry timer comes back to it */ }
+      }
+    } finally {
+      sending = false;
+      state.sent += sent;
+      renderFlags();
+    }
+  }
+
+  /* Anything that failed gets picked up again, including after the game ends. */
+  setInterval(flush, 15000);
 
   function updateLastFlag(note, seconds) {
     for (let i = state.flags.length - 1; i >= 0; i--) {
@@ -627,7 +700,7 @@
   }
 
   function renderFlags() {
-    const list = state.flags.filter((f) => f.kind === 'inactive' || f.kind === 'augment');
+    const list = state.flags.filter((f) => f.kind !== 'started' && f.kind !== 'stopped');
     $('findingCount').textContent = `(${list.length})`;
     $('findingList').innerHTML = list.length ? list.slice().reverse().map((f) => `
       <article class="finding">
@@ -636,7 +709,7 @@
           <div class="finding__head">
             <span class="tag ${f.kind === 'augment' ? 'tag--live' : 'tag--closed'}">${f.kind === 'augment' ? 'augment' : 'inactive'}</span>
             <span class="finding__at">${clock(f.at)}</span>
-            ${f.sent ? '<span class="finding__sent">sent</span>' : ''}
+            <span class="finding__sent">${f.sent ? 'sent' : f.tries >= 6 ? 'could not send' : 'sending…'}</span>
           </div>
           <div class="finding__note">${esc(f.note)}</div>
         </div>
@@ -644,76 +717,10 @@
       : '<div class="log__empty">Nothing worth a look yet.</div>';
   }
 
-  $('sendFlags').addEventListener('click', async () => {
-    const unsent = state.flags.filter((f) => !f.sent && (f.kind === 'inactive' || f.kind === 'augment'));
-    if (!unsent.length) { toast('Nothing new to send'); return; }
-    const shots = unsent.filter((f) => f.shot).length;
-    const ok = await window.TFTUI.confirm({
-      title: `Send ${unsent.length} note${unsent.length === 1 ? '' : 's'}?`,
-      body: shots
-        ? `Your gamemaster gets the times, the notes, and ${shots} screenshot${shots === 1 ? '' : 's'} of your game window at those moments. Nothing else from your screen is sent, and the rest of the recording stays here.`
-        : 'Your gamemaster gets the times and the one-line notes.',
-      confirmText: 'Send it',
-    });
-    if (!ok) return;
-    try {
-      /* Anything with a picture goes one at a time through /api/evidence, so
-         the gamemaster gets the frame rather than a description of it. Anything
-         without falls back to the text-only route. A failed image must not lose
-         the note, so each is tried on its own. */
-      const withShot = unsent.filter((f) => f.shot);
-      const textOnly = unsent.filter((f) => !f.shot);
-      let sent = 0;
-
-      for (const f of withShot) {
-        const res = await fetch('/api/evidence', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ code: state.code, game: state.game, kind: f.kind, note: f.note, at: f.at, image: f.shot }),
-        });
-        if (res.ok) { f.sent = true; sent += 1; }
-        else {
-          const err = await res.json().catch(() => ({}));
-          // Out of room or too big: still send the words.
-          textOnly.push(f);
-          if (err.error) toast(err.error);
-        }
-      }
-
-      if (textOnly.length) {
-        const res = await fetch('/api/flag', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            code: state.code,
-            game: state.game,
-            flags: textOnly.map((f) => ({ kind: f.kind, note: f.note, at: f.at, seconds: f.seconds })),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Could not send.');
-        textOnly.forEach((f) => { f.sent = true; });
-        sent += textOnly.length;
-      }
-
-      state.sent += sent;
-      renderFlags();
-      toast(`Sent ${sent} to your gamemaster`);
-    } catch (e) { toast(e.message); }
-  });
-
-  $('clearFlags').addEventListener('click', async () => {
-    if (!state.flags.length) return;
-    const ok = await window.TFTUI.confirm({
-      title: 'Clear the findings?',
-      body: 'Notes and screenshots on this machine go. Anything already sent stays with your gamemaster.',
-      confirmText: 'Clear',
-      danger: true,
-    });
-    if (!ok) return;
-    state.flags = [];
-    renderFlags();
-  });
+  /* There is no send button and no clear button. Findings go as they are
+     made — see addFlag — and what has gone is not the player's to withdraw.
+     The only control that stays is stopping the share, which stops new
+     findings and nothing else. */
 
   window.addEventListener('beforeunload', () => {
     clearInterval(state.watchTimer);
