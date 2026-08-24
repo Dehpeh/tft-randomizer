@@ -71,6 +71,8 @@
     region: null,        // normalised {x,y,w,h} for the augment band
     calibrating: false,
     rolledAugment: null,
+    rolledByStage: {},
+    augmentSeen: 0,
     worker: null,
     gameLocked: false,   // true once the player picks a game themselves
     watchTimer: null,
@@ -176,11 +178,19 @@
       }
       /* Only the augment restrictions name a card, and only those make the
          flag worth reading. */
+      /* Keyed by the stage it applies to, because a game deals three augment
+         screens and a restriction usually governs one. "No augment freedom"
+         names all three stages and so fills all three slots. */
       state.rolledAugment = null;
+      state.rolledByStage = {};
       roll.picks.forEach((p) => {
-        T.detailsOf(p).forEach((d) => {
-          if (/^(left|middle|right)$/.test(String(d.value))) {
-            state.rolledAugment = d.label === 'Take' ? d.value : `${d.label} ${d.value}`;
+        const details = T.detailsOf(p);
+        const at = details.find((d) => d.label === 'At');
+        const take = details.find((d) => d.label === 'Take');
+        if (at && take) state.rolledByStage[at.value] = take.value;
+        details.forEach((d) => {
+          if (/^(2-1|3-2|4-2)$/.test(String(d.label)) && /^(left|middle|right)$/.test(String(d.value))) {
+            state.rolledByStage[d.label] = d.value;
           }
         });
       });
@@ -296,17 +306,39 @@
     state.stream.getVideoTracks()[0].addEventListener('ended', stop);
 
     state.startedAt = Date.now();
+    state.augmentSeen = 0;
     state.detector = D.createDetector({ region: state.region || DEFAULT_REGION });
 
     $('live').hidden = false;
     $('findings').hidden = false;
     $('startBtn').hidden = true;
     $('stopBtn').hidden = false;
+    $('clipBtn').hidden = false;
     setTimeout(drawOverlay, 200);
 
     addFlag('started', 'Proctor started', 0);
     startClock();
     toast('Watching your game window');
+  });
+
+  /* Manual clip: same evidence pipe as an automatic one, so it arrives in the
+     gamemaster's panel the same way and does not need its own anything. */
+  function clipNow(reason) {
+    if (!state.stream) { toast('Not watching yet'); return; }
+    shoot();
+    addFlag('note', reason || 'Clipped by hand', elapsed());
+    toast('Clipped — send it when you are ready');
+  }
+
+  $('clipBtn').addEventListener('click', () => clipNow('Clipped by hand'));
+
+  /* A keyboard shortcut matters here: nobody alt-tabs out of a carousel to
+     press a button, but they might hit one key. */
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    if (e.key.toLowerCase() === 'c' && state.stream) { e.preventDefault(); clipNow('Clipped by hand'); }
   });
 
   $('stopBtn').addEventListener('click', stop);
@@ -347,6 +379,7 @@
     state.stream = null;
     $('startBtn').hidden = false;
     $('stopBtn').hidden = true;
+    $('clipBtn').hidden = true;
     addFlag('stopped', 'Proctor stopped', 0);
     toast('Stopped watching');
   }
@@ -401,14 +434,21 @@
     if (e.kind === 'augment-take') {
       shoot();
       addFlag('augment', `Augment taken after ${e.openFor}s — check the shot${rolledPick()}`, e.at);
+      state.augmentSeen = (state.augmentSeen || 0) + 1;
     }
   }
 
   /* What the randomizer told them to take, quoted on the flag so the check is
      one glance rather than two screens. */
+  /* The nth augment screen of a game is 2-1, then 3-2, then 4-2. Counting them
+     is enough to know which restriction, if any, is in play. */
+  const STAGES = ['2-1', '3-2', '4-2'];
+
   function rolledPick() {
-    const said = state.rolledAugment;
-    return said ? ` · your roll said ${said}` : '';
+    const stage = STAGES[Math.min(STAGES.length - 1, state.augmentSeen)];
+    const said = (state.rolledByStage || {})[stage];
+    if (!said) return ` · ${stage} · nothing rolled for this one`;
+    return ` · ${stage} · your roll said ${said}`;
   }
 
   /* ---------- output ---------- */

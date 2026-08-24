@@ -152,6 +152,26 @@ So the lab grew a capture tool instead: scrub to the moment, check the box lands
 on the thing, press capture. Thirty seconds per restriction, on footage at the
 resolution it will really run at.
 
+**Confirmed on a real machine.** A full game at native resolution produced
+three augment findings at 02:35, 11:58 and 19:41 — 2-1, 3-2 and 4-2 — each
+with the screen and the moment it closed. That also settled the one untested
+assumption: the sampling clock kept real time for twenty minutes while the
+browser tab sat behind the game, so moving it into a Web Worker did beat
+background throttling.
+
+**A clip button covers what no matcher will.** The machine watches for things
+it has a picture of, and there will always be more restrictions than pictures.
+One button — or the C key, since nobody alt-tabs out of a carousel — grabs the
+frame and files it exactly like an automatic one. It is the honest general
+case: the detector saves an umpire from watching, a human still decides what
+mattered.
+
+**Augment notes name the stage they apply to.** A game deals three augment
+screens and a restriction usually governs one of them; printing the rolled
+instruction against all three invites an argument about the two it has nothing
+to do with. The nth screen is 2-1, then 3-2, then 4-2, which is enough to say
+which.
+
 **Constraints that shaped it**, all from the tournament side:
 
 - It must not touch the game. `getDisplayMedia` reads pixels the OS already
