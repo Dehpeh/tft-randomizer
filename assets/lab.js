@@ -23,6 +23,7 @@
 
   const state = {
     file: null,
+    live: null,        // a MediaStream when sharing rather than replaying
     running: false,
     events: [],
     truth: [],
@@ -157,6 +158,48 @@
     toast(`${passed}/${checks.length} passed`);
   });
 
+  /* ---------- live ----------
+     Calibrating from a file means recording first, which is a step people will
+     skip. The detector only ever wanted frames, and a screen share is frames,
+     so the same page takes either. Seeking is the one thing a live source
+     cannot do, so the replay run is swapped for a watch-as-you-go run. */
+
+  $('useScreen').addEventListener('click', async () => {
+    try {
+      state.live = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 4 }, audio: false });
+    } catch (e) {
+      toast('Screen sharing was declined.');
+      return;
+    }
+    video.srcObject = state.live;
+    video.src = '';
+    await video.play().catch(() => {});
+    state.live.getVideoTracks()[0].addEventListener('ended', stopLive);
+
+    state.file = { name: 'live screen' };
+    state.duration = 0;
+    $('replayStatus').textContent = `live · ${video.videoWidth}x${video.videoHeight}`;
+    $('useScreen').hidden = true;
+    $('stopScreen').hidden = false;
+    $('runReplay').disabled = false;
+    $('runReplay').textContent = 'Watch live';
+    setTimeout(() => { drawOverlay(); showMatcherBox(); }, 300);
+    toast('Sharing — capture a matcher when its moment is on screen');
+  });
+
+  $('stopScreen').addEventListener('click', stopLive);
+
+  function stopLive() {
+    state.running = false;
+    if (state.live) state.live.getTracks().forEach((t) => t.stop());
+    state.live = null;
+    video.srcObject = null;
+    $('useScreen').hidden = false;
+    $('stopScreen').hidden = true;
+    $('runReplay').textContent = 'Run the detector';
+    $('replayStatus').textContent = 'No file yet';
+  }
+
   /* ---------- replay ---------- */
 
   $('videoFile').addEventListener('change', (e) => {
@@ -238,6 +281,24 @@
     state.events = [];
     $('stopReplay').hidden = false;
     $('runReplay').disabled = true;
+
+    /* Live: no seeking, so it samples the clock instead and keeps going until
+       stopped. Everything downstream — events, scoring — is identical. */
+    if (state.live) {
+      const det = D.createDetector({ region: state.region, detectStill: true, detectAugments: true });
+      const started = Date.now();
+      while (state.running && state.live) {
+        const at = (Date.now() - started) / 1000;
+        det.push(frameAt(), at).forEach((e) => state.events.push(e));
+        $('replayNote').textContent = `live · ${clock(at)} · ${state.events.length} events`;
+        renderEvents();
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      state.running = false;
+      $('stopReplay').hidden = true;
+      $('runReplay').disabled = false;
+      return;
+    }
 
     const step = Math.max(0.1, Number($('stepInput').value) || 0.5);
     const det = D.createDetector({

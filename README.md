@@ -271,6 +271,28 @@ player acting. TFT never holds still, so a player doing nothing still produces a
 moving screen. Catching AFK needs the parts that only move on input — the shop
 row, the gold counter, the bench — and that is not built.
 
+## Calibrating a matcher on your own machine
+
+The proctor watches for things it has a picture of. It ships with one — the
+augment screen. The rest are declared with the region they live in and are
+waiting on a picture, because the only footage available to calibrate them was a
+640x360 stream copy where a gold digit is eight pixels tall.
+
+To add one, at the resolution you actually play at:
+
+1. Open  and press **or share my screen**, picking the TFT window.
+2. Play until the moment is on screen — a carousel round, the gold counter
+   reading zero, a board with nothing activated.
+3. Pick the matcher, check the dotted box lands on the thing (drag it if not),
+   press **Capture**.
+4. Press **Watch live** and keep playing. Events appear as they are seen.
+5. If it holds up, the string in the box goes into  so everyone
+   gets it. If it does not, capture again at another sighting.
+
+A template from one frame is weaker than the augment one, which was averaged
+over five real occurrences. Capture at more than one sighting and keep the one
+that scores best on a replay.
+
 ## Organiser dashboard
 
 , behind the same . Everyone who signed up, what they

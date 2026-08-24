@@ -71,6 +71,8 @@
         <label for="videoFile">/ Recording</label>
         <input id="videoFile" type="file" accept="video/*">
       </div>
+      <button class="btn" id="useScreen">or share my screen</button>
+      <button class="btn" id="stopScreen" hidden>Stop sharing</button>
       <div class="field">
         <label for="stepInput">/ Sample every</label>
         <input id="stepInput" type="number" min="0.1" max="2" step="0.1" value="0.5">
@@ -133,7 +135,7 @@
   <!-- ============ CALIBRATE ============ -->
   <section class="gmpanel">
     <div class="section-label">/ CALIBRATE A MATCHER</div>
-    <p class="hint">Each restriction the proctor can watch is one picture of one thing in one place. Scrub the recording to the moment &mdash; a carousel round, the gold counter reading zero, a board with no trait active &mdash; pick the matcher, check the box lands on it, and capture. It is saved for this browser straight away; the string below goes into <code>lib/matchers.js</code> to ship it to everyone.</p>
+    <p class="hint">Each restriction the proctor can watch is one picture of one thing in one place. Get to the moment &mdash; a carousel round, the gold counter reading zero, a board with no trait active &mdash; pick the matcher, check the box lands on it, and capture. Works on a recording or on a live share, so you can calibrate mid-game without recording anything. Saved for this browser straight away; the string below ships it to everyone.</p>
     <div class="controls-row" style="margin-top:1rem">
       <div class="field">
         <label for="matcherPick">/ Matcher</label>
