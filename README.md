@@ -338,6 +338,8 @@ are the `RANKS` array in the same file.
 | `api/state.js` | What the dashboard polls |
 | `api/roll.js` | Gamemaster rolls: everyone, only the unrolled, or one player |
 | `api/gm.js` | Ranks, rerolls, placements, pool, removals, handing over the lobby |
+| `api/flag.js` | Proctor notes, text only |
+| `api/evidence.js` | A proctor note with the still that goes with it |
 | `api/me.js` | Your matches and the numbers derived from them |
 | `api/admin.js` | Passcode resets and the pre-tournament wipe (needs `ADMIN_KEY`) |
 | `api/_store.js` | Upstash Redis, or a local JSON file when it is absent |

@@ -703,8 +703,13 @@
     $('flagList').innerHTML = list.length
       ? list.slice().reverse().map((f) => {
         const who = (s.players.find((x) => x.id === f.playerId) || {}).display || f.playerId;
-        return `<div class="penalty penalty--flag">
-          <span>${esc(who)} · ${clockText(f.at)} — ${esc(f.note)}</span>
+        /* The still is loaded only when a note actually has one, so a lobby
+           with fifty notes does not fetch fifty images to draw a list. */
+        return `<div class="flagrow">
+          ${f.ev ? `<a class="flagrow__shot" href="/api/evidence?code=${esc(s.code)}&id=${esc(f.ev)}" target="_blank" rel="noopener">
+              <img src="/api/evidence?code=${esc(s.code)}&id=${esc(f.ev)}" alt="Screen at ${clockText(f.at)}" loading="lazy">
+            </a>` : '<span class="flagrow__shot flagrow__shot--none"></span>'}
+          <span class="flagrow__text">${esc(who)} · ${clockText(f.at)} — ${esc(f.note)}</span>
         </div>`;
       }).join('')
       : '<div class="log__empty">No proctor notes for this game.</div>';

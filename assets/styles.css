@@ -1704,3 +1704,28 @@ button, input, select { font-weight: 300; }
 /* A proctor note is a machine observation; a penalty is a human decision. They
    read differently on purpose. */
 .penalty--flag { color: var(--dim); border-left-color: var(--line); }
+
+/* ============ PROCTOR EVIDENCE ============
+   A note without its frame is a description of something a gamemaster cannot
+   see, so the still sits beside every one that has it. */
+.flagrow {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-left: 2px solid var(--line);
+  padding-left: 0.6rem;
+}
+
+.flagrow__shot { display: block; }
+.flagrow__shot img { display: block; width: 96px; border: 1px solid var(--line); border-radius: 2px; }
+.flagrow__shot--none { width: 96px; height: 54px; background: var(--panel); border-radius: 2px; }
+
+.flagrow__text {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: -0.012em;
+  color: var(--dim);
+}

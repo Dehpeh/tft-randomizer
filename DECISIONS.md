@@ -149,6 +149,8 @@ that only move on input — shop row, gold counter, bench — and that is not bu
   text notes are sent, and only when the player sends them.
 - It flags, it never judges.
 
+**Evidence travels with the note.** Text-only notes were close to useless — "augment screen at 04:12" tells a gamemaster where to look but not what they would have seen, and by then the game is over. A 480px still goes with each note. Stills rather than clips: a clip of useful length is megabytes, encoded on a machine currently running a game. Images are stored under their own keys and never inside the session document, because the dashboard re-reads that document every few seconds for every player in the lobby.
+
 > **Open risk: validated on one player, one resolution, one patch.** The
 > template came from a 640x360 stream copy. It is resolution-independent by
 > construction (the crop is resampled), but a patch that restyles the text, a

@@ -477,28 +477,58 @@
   $('sendFlags').addEventListener('click', async () => {
     const unsent = state.flags.filter((f) => !f.sent && (f.kind === 'inactive' || f.kind === 'augment'));
     if (!unsent.length) { toast('Nothing new to send'); return; }
+    const shots = unsent.filter((f) => f.shot).length;
     const ok = await window.TFTUI.confirm({
       title: `Send ${unsent.length} note${unsent.length === 1 ? '' : 's'}?`,
-      body: 'Your gamemaster sees the times and the one-line notes. The screenshots stay on this machine.',
-      confirmText: 'Send the notes',
+      body: shots
+        ? `Your gamemaster gets the times, the notes, and ${shots} screenshot${shots === 1 ? '' : 's'} of your game window at those moments. Nothing else from your screen is sent, and the rest of the recording stays here.`
+        : 'Your gamemaster gets the times and the one-line notes.',
+      confirmText: 'Send it',
     });
     if (!ok) return;
     try {
-      const res = await fetch('/api/flag', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          code: state.code,
-          game: state.game,
-          flags: unsent.map((f) => ({ kind: f.kind, note: f.note, at: f.at, seconds: f.seconds })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not send.');
-      unsent.forEach((f) => { f.sent = true; });
-      state.sent += unsent.length;
+      /* Anything with a picture goes one at a time through /api/evidence, so
+         the gamemaster gets the frame rather than a description of it. Anything
+         without falls back to the text-only route. A failed image must not lose
+         the note, so each is tried on its own. */
+      const withShot = unsent.filter((f) => f.shot);
+      const textOnly = unsent.filter((f) => !f.shot);
+      let sent = 0;
+
+      for (const f of withShot) {
+        const res = await fetch('/api/evidence', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ code: state.code, game: state.game, kind: f.kind, note: f.note, at: f.at, image: f.shot }),
+        });
+        if (res.ok) { f.sent = true; sent += 1; }
+        else {
+          const err = await res.json().catch(() => ({}));
+          // Out of room or too big: still send the words.
+          textOnly.push(f);
+          if (err.error) toast(err.error);
+        }
+      }
+
+      if (textOnly.length) {
+        const res = await fetch('/api/flag', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            code: state.code,
+            game: state.game,
+            flags: textOnly.map((f) => ({ kind: f.kind, note: f.note, at: f.at, seconds: f.seconds })),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not send.');
+        textOnly.forEach((f) => { f.sent = true; });
+        sent += textOnly.length;
+      }
+
+      state.sent += sent;
       renderFlags();
-      toast('Sent to your gamemaster');
+      toast(`Sent ${sent} to your gamemaster`);
     } catch (e) { toast(e.message); }
   });
 
