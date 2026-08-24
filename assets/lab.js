@@ -154,6 +154,14 @@
     checks.push(['Shape tests agree with drawn shapes', feature.fail === 0,
       `${feature.pass} of ${feature.pass + feature.fail}`]);
 
+    const shopLines = [];
+    const shopT = window.TFTShopTest
+      ? window.TFTShopTest.run((s) => shopLines.push(s))
+      : { pass: 0, fail: 0 };
+    checks.push(['Shop reads the costs it was measured on, and stays quiet otherwise', shopT.fail === 0,
+      `${shopT.pass} of ${shopT.pass + shopT.fail}`]);
+    featureLines.push('', ...shopLines);
+
     const passed = checks.filter((c) => c[1]).length;
     $('selfResults').innerHTML = `
       <div class="admin__lobby"><span class="admin__name">${passed}/${checks.length} passed</span>
@@ -564,6 +572,92 @@
 
   renderMatchers();
   showMatcherBox();
+
+  /* ---------- the shop ----------
+     Two questions, and they are different questions. "What does it think is in
+     the shop right now" checks the weak half — the cost colours — against a
+     frame you can look at. "What did it see over a stretch" checks the strong
+     half, which is whether the buys and rerolls it reports are the ones that
+     actually happened. The second is the one that decides whether this gets
+     turned on. */
+  const SHOP = window.TFTShop;
+
+  function paintShop(rows, note) {
+    $('shopNote').textContent = note;
+    $('shopOut').innerHTML = rows.join('');
+  }
+
+  function slotWord(s) {
+    if (s.empty) return 'empty';
+    if (s.occluded) return 'covered';
+    return s.cost === null ? 'unreadable' : s.cost + '-cost';
+  }
+
+  $('shopRead').addEventListener('click', async () => {
+    const at = parseClock($('shopAt').value);
+    if (at === null) { window.TFTUI.fieldError($('shopAt'), 'Use mm:ss, like 15:31.'); return; }
+    await seek(at);
+    const row = SHOP.read(frameAt());
+
+    /* The boxes are drawn on the preview too, because nine times in ten a wrong
+       reading is a box that is not on the card rather than a bad threshold. */
+    state.region = SHOP.slotBox(0, null, 'bar');
+    drawOverlay();
+
+    paintShop(row.slots.map((s) => `
+      <div class="admin__lobby">
+        <span class="tag ${s.cost === null ? 'tag--closed' : 'tag--live'}">slot ${s.slot}</span>
+        <span class="admin__name" style="font-size:0.95rem">${esc(slotWord(s))}</span>
+        <span class="admin__nums">${esc(s.why)}</span>
+      </div>`),
+      `${clock(at)} · the shop ${SHOP.visible(row) ? 'is readable' : 'is not readable here — hidden, dimmed, or behind the sell bar'}.`);
+  });
+
+  $('shopRun').addEventListener('click', async () => {
+    const at = parseClock($('shopAt').value);
+    const from = at === null ? 0 : at;
+    const to = Math.min(from + 180, state.duration);
+    const tr = SHOP.tracker();
+    const seen = [];
+    state.running = true;
+    paintShop([], 'Reading ' + clock(from) + ' to ' + clock(to) + '…');
+
+    /* Report the span actually looked at, not the span asked for. A run that was
+       stopped early and still claims three minutes of coverage reads as "nothing
+       happened in those three minutes", which is the one thing it cannot say. */
+    let reached = from;
+    for (let t = from; t < to && state.running; t += 0.5) {
+      await seek(t);
+      tr.push(SHOP.read(frameAt()), t).forEach((e) => seen.push(e));
+      reached = t;
+    }
+    const cutShort = reached < to - 0.5;
+    state.running = false;
+
+    paintShop(seen.map((e) => `
+      <div class="admin__lobby">
+        <span class="tag ${e.kind === 'buy' ? 'tag--live' : 'tag--closed'}">${e.kind}</span>
+        <span class="admin__name" style="font-size:0.95rem">${clock(e.at)}</span>
+        <span class="admin__nums">${e.kind === 'buy'
+          ? 'slot ' + e.slot + ', a ' + (e.cost === null ? 'card of unknown cost' : e.cost + '-cost')
+          : 'held: ' + (e.kept.length ? e.kept.join(', ') : 'nothing') + ' · now ' + e.offered.map((c) => c === null ? '?' : c).join(' ')}</span>
+      </div>`),
+      `${seen.length} shop events across ${Math.round(reached - from)}s${cutShort ? ' (stopped early — the rest was not looked at)' : ''}. Check them against the recording: a buy is one card gone with the rest untouched, a reroll is the whole row changing.`);
+  });
+
+  function paintArm() {
+    $('shopArm').textContent = SHOP.on() ? 'Turn off' : 'Turn on';
+  }
+
+  $('shopArm').addEventListener('click', () => {
+    SHOP.setOn(!SHOP.on());
+    paintArm();
+    $('shopNote').textContent = SHOP.on()
+      ? 'The shop watcher is on for this browser. It only notes something when one of the rolled restrictions is about the shop.'
+      : 'The shop watcher is off again.';
+  });
+
+  paintArm();
 
   /* Scripted access to the same functions the buttons call, so a run can be
      driven from a console or a test harness rather than by hand. It adds no

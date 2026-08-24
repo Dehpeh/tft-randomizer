@@ -134,6 +134,22 @@
 
   <!-- ============ CALIBRATE ============ -->
   <section class="gmpanel">
+    <div class="section-label">/ THE SHOP</div>
+    <p class="hint">Six restrictions live in the shop row &mdash; lock a slot, 5-costs banned, buy every 1-cost &mdash; and none of them needs a picture. A reroll replaces every unlocked card at once, a purchase empties exactly one slot, and the locked slot is whatever survives a reroll. That is change over time rather than appearance, so it works at any resolution. Cost comes from the colour of the name bar, which is the weaker half and the part worth checking here.</p>
+    <div class="controls-row" style="margin-top:1rem">
+      <div class="field">
+        <label for="shopAt">/ At (mm:ss)</label>
+        <input id="shopAt" type="text" placeholder="15:31">
+      </div>
+      <button class="btn" id="shopRead">Read the shop here</button>
+      <button class="btn" id="shopRun">Run it over a stretch</button>
+      <button class="btn" id="shopArm">Turn on</button>
+    </div>
+    <p class="hint" id="shopNote">&nbsp;</p>
+    <div class="admin__table" id="shopOut"></div>
+  </section>
+
+  <section class="gmpanel">
     <div class="section-label">/ CALIBRATE A MATCHER</div>
     <p class="hint">Three of these work from shape rather than from a picture &mdash; a lone zero is one glyph with a hole through the middle, an inactive trait strip is grey, three star pips are three level dots. Those need no capture, but they have never been scored against real TFT, so they ship off: put the box on the right place, score some frames, then turn one on. The rest are one picture of one thing in one place.</p>
     <p class="hint">Each restriction the proctor can watch is one picture of one thing in one place. Get to the moment &mdash; a carousel round, the gold counter reading zero, a board with no trait active &mdash; pick the matcher, check the box lands on it, and capture. Works on a recording or on a live share, so you can calibrate mid-game without recording anything. Saved for this browser straight away; the string below ships it to everyone.</p>
@@ -184,8 +200,10 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/lib/features.js"></script>
+<script src="/lib/shop.js"></script>
 <script src="/lib/matchers.js"></script>
 <script src="/lib/features.test.js"></script>
+<script src="/lib/shop.test.js"></script>
 <script src="/lib/detect.js"></script>
 <script src="/assets/ui.js"></script>
 <script src="/assets/nav.js"></script>

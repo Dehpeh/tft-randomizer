@@ -234,6 +234,74 @@ matcher declares this next to itself in `lib/matchers.js`, and the proctor
 enforces it — which also stops one chatty detector eating the twelve
 screenshots a game is allowed.
 
+**The shop row is worth six restrictions on its own.** Lock a shop space, ban
+5-costs, buy every 1-cost you see — three rules, six entries between minor and
+major, and all of them are questions about the same five cards. None needs a
+picture, because the shop announces itself two ways that survive any
+resolution:
+
+| What is asked | How it is answered |
+| --- | --- |
+| Which slot was locked | The one that survives a reroll |
+| Was something bought | Exactly one slot empties, the rest untouched |
+| What did it cost | The colour of its name bar |
+
+The first two are change over time, not appearance — which parts of a picture
+differ from the picture before it. That works at 360p or 4K, in any language,
+through any skin, and it is the half that does the real work.
+
+**The colour half is the weak half, and the reference footage showed exactly**
+**how.** At 640x360 compression smears the low-saturation 1-cost bar toward blue
+until its hue lands on top of a 3-cost — 185-203 against 207-216. Hue alone
+cannot separate them. Saturation can, 0.35-0.44 against 0.54-0.61, which is why
+the classifier reads both and why the fitted numbers live in a table in
+`lib/shop.js` rather than scattered through the code. Scored against readings
+labelled by eye off the same frames, it gets 14 of 15 and reports the fifteenth
+as unreadable rather than guessing.
+
+**Three things had to be built before it stopped lying.** Each was found by
+running it over real footage, and each is in `lib/shop.test.js` so it stays
+fixed:
+
+- **The sell bar.** Dragging a unit replaces the entire shop with a dark
+  "Sell for 1g" band, which read as four 1-costs — the grey rule had no
+  saturation floor, so anything dim and bluish qualified. Measured: the sell bar
+  sits at luminance 20, a real name bar at 42-99, an empty slot at 7-8. The gap
+  between 18 and 30 is now where the answer is that there is nothing readable.
+- **Transitions.** The shop dims through combat and fades on the way back, and
+  read frame by frame that produced sixteen "rerolls" in two minutes. A reading
+  now has to agree with the one before it before it counts, so a transition —
+  whose frames never agree with each other — produces nothing. Sixteen events
+  became three.
+- **Overlays.** In the reference stream the fifth slot sits a quarter underneath
+  the streamer’s webcam, and averaging across it turned an empty slot into a
+  confident 2-cost. A real name bar is one flat colour across its width, so the
+  quarters of the bar are compared and a slot that disagrees with itself is
+  reported as covered. That matters beyond this one video: anyone running an
+  overlay over their shop would otherwise get confident nonsense.
+
+**What the gold counter needs that this footage cannot give.** Gold at zero and
+gold on an econ threshold are both digit-shape questions, and the box was
+measured off real footage — the earlier one was twice as tall as it needed to
+be. But at 640x360 the digits are five pixels tall, and segmentation is a coin
+flip: it read 50 correctly and 30 as a single glyph. These are written and
+unproven, and they need a capture at 720p or better before they mean anything.
+
+**What is not built, and why.** Two restrictions get no detector at all, and
+saying so is more useful than shipping something that looks like one:
+
+- *Declare left or right and only position on that side.* The board is drawn in
+  perspective and units overlap; separating "on the wrong half" from "near the
+  middle" is noise at any resolution I can test. A screenshot answers it in a
+  second, which is what the clip button is for.
+- *Cannot play a line found in a guide.* Nothing on screen distinguishes a line
+  someone worked out from one they read. This is honour, and no amount of
+  detection changes that.
+
+The physical ones — hands, layers of clothing, drinking — are deliberately out
+of scope: watching them would mean a webcam, and the constraint from the start
+was that this streams the game and nothing else.
+
 **Why `/lab` exists.** A detector nobody has scored is a guess. It replays a
 recording through the exact same `lib/detect.js` the live page runs — measuring
 a copy would be worthless — and scores it against what a human says happened.
@@ -295,12 +363,14 @@ deploys. They exist so the lab can be pointed at a recording outside the repo.
    it on the night — a rank floor for prizes, or giving Gold 1 minor, are both
    one-line changes.
 3. **Proctor validation by more than one person**, per the risk above.
-4. **Score the three shape detectors on real footage.** They are written,
-   tested against drawn shapes, and switched off. Turning one on is a button on
-   `/lab`; earning it is a replay of a real game where it fires when it should
-   and stays quiet when it should not. Until that happens they are guesses with
-   good manners. The carousel matcher still wants a captured picture, and until
-   someone takes it, the clip button is what covers a carousel.
+4. **Score the unproven detectors on a clean capture.** They are written,
+   tested, and switched off. Turning one on is a button on `/lab`; earning it is
+   a replay of a real game where it fires when it should and stays quiet when it
+   should not. The shop model has cleared part of that bar already — it found a
+   confirmed purchase and refused the sell bar on real footage — but on one
+   stretch of one 360p stream. The gold detectors cannot clear it at all at that
+   resolution. An OBS capture at native resolution is the thing that settles both,
+   and the carousel and wisp matchers still want a picture nobody has taken.
 5. **The site becomes the tournament hub.** The randomizer is a page, not the
    app: `/` can become the front page with dates, format and signups while
    everything here keeps working.

@@ -183,6 +183,35 @@
          names all three stages and so fills all three slots. */
       state.rolledAugment = null;
       state.rolledByStage = {};
+
+      /* The shop rules need the restrictions themselves, not just the augment
+         detail: whether a slot has to stay locked and which one, which costs are
+         banned, which costs have to be bought on sight. A rolled restriction is
+         the only thing that makes any of those events worth a note — nobody
+         needs to be told they bought a 5-cost when 5-costs are allowed. */
+      state.rules = {
+        lockSlot: null,
+        bannedCosts: [],
+        mustBuy: [],
+        traitBan: false,
+        builtDifferent: false,
+      };
+      roll.picks.forEach((p) => {
+        const d = T.detailsOf(p);
+        const slotOf = (label) => {
+          const found = d.find((x) => x.label === label);
+          const n = found && String(found.value).match(/(\d)/);
+          return n ? Number(n[1]) : null;
+        };
+        if (p.id === 'mn-shoplock' || p.id === 'mj-shoplock') state.rules.lockSlot = slotOf('Shop slot');
+        if (p.id === 'mn-costban') state.rules.bannedCosts = [5];
+        if (p.id === 'mj-costban') state.rules.bannedCosts = [4, 5];
+        if (p.id === 'mn-forcebuy') state.rules.mustBuy = [1];
+        if (p.id === 'mj-forcebuy') state.rules.mustBuy = [1, 2];
+        if (p.id === 'mj-traitban') state.rules.traitBan = true;
+        if (p.id === 'mj-bd') state.rules.builtDifferent = true;
+      });
+
       roll.picks.forEach((p) => {
         const details = T.detailsOf(p);
         const at = details.find((d) => d.label === 'At');
@@ -308,7 +337,15 @@
     state.startedAt = Date.now();
     state.augmentSeen = 0;
     Object.keys(matchSeen).forEach((k) => delete matchSeen[k]);
-    state.detector = D.createDetector({ region: state.region || DEFAULT_REGION });
+    Object.keys(shopSeen).forEach((k) => delete shopSeen[k]);
+    /* The shop watcher is off unless this browser has turned it on in the lab,
+       which is the same rule the shape matchers follow. */
+    const shopOn = Boolean(window.TFTShop && window.TFTShop.on());
+    state.detector = D.createDetector({
+      region: state.region || DEFAULT_REGION,
+      watchShop: shopOn,
+      watchTraits: shopOn,
+    });
 
     $('live').hidden = false;
     $('findings').hidden = false;
@@ -429,6 +466,63 @@
     addFlag('note', because ? said + ' — ' + because : said, e.at);
   }
 
+  /* --- the shop restrictions ---
+     Each of these is the same shape: something happened in the shop, and one of
+     the rolled restrictions has an opinion about it. None of them decides
+     anything — every one ends in a screenshot and a line for a person to read,
+     because "the card that should have been locked was replaced" and "the player
+     unlocked it on purpose between rounds" look identical from here. */
+
+  const rules = () => state.rules || {};
+
+  function onReroll(e) {
+    const r = rules();
+
+    /* A locked slot is the one that survives a reroll. If the slot they were
+       told to lock is not among the survivors, the shop rerolled without it. */
+    if (r.lockSlot && e.kept.indexOf(r.lockSlot) === -1) {
+      noteShop('lock', e.at, 'Shop rerolled and slot ' + r.lockSlot + ' did not hold'
+        + (e.kept.length ? ' (held: ' + e.kept.join(', ') + ')' : ' (nothing held)'));
+    }
+
+    /* Must-buy is the reverse: the shop changing is the moment the chance to buy
+       it is gone, so a banned-to-pass cost sitting in the old row is the flag. */
+    if (r.mustBuy.length) {
+      const passed = (e.wasOffered || []).filter((c) => c !== null && r.mustBuy.indexOf(c) !== -1);
+      if (passed.length) {
+        noteShop('forcebuy', e.at, 'Shop changed with a ' + passed.join(' and a ') + '-cost still in it');
+      }
+    }
+  }
+
+  function onBuy(e) {
+    const r = rules();
+    if (e.cost !== null && r.bannedCosts.indexOf(e.cost) !== -1) {
+      noteShop('costban', e.at, 'Bought a ' + e.cost + '-cost from slot ' + e.slot
+        + ' — check the stage, the ban lifts at stage 5');
+    }
+  }
+
+  function onTraits(e) {
+    const r = rules();
+    if (!r.traitBan && !r.builtDifferent) return;
+    noteShop('traits', e.at, 'Traits went from ' + e.was + ' to ' + e.count
+      + ' active — the shot says which');
+  }
+
+  /* Same gate as the matchers: a cap and a gap, so one busy game cannot bury the
+     one line that matters or spend all twelve screenshots on rerolls. */
+  const shopSeen = {};
+
+  function noteShop(key, at, said) {
+    const seen = shopSeen[key] || (shopSeen[key] = { n: 0, last: -1e9 });
+    if (seen.n >= 8 || at - seen.last < 20) return;
+    seen.n++;
+    seen.last = at;
+    shoot();
+    addFlag('note', said, at);
+  }
+
   /* Screenshots are taken here rather than in the detector: evidence is this
      page's job, judgement is that file's. */
   function handle(e) {
@@ -445,6 +539,13 @@
        the moment of choosing measured 33/33/33 on real footage. */
     if (e.kind === 'match-open') noteMatch(e, 'open', e.label + ' seen');
     if (e.kind === 'match-close') noteMatch(e, 'close', e.label + ' ended after ' + e.openFor + 's');
+    /* A shop event is only worth a note if one of this player's restrictions is
+       about it. The detector reports what the shop did; this decides whether
+       anybody cares. */
+    if (e.kind === 'shop-reroll') onReroll(e);
+    if (e.kind === 'shop-buy') onBuy(e);
+    if (e.kind === 'traits-up') onTraits(e);
+
     if (e.kind === 'augment-open') {
       shoot();
       addFlag('augment', 'Augment screen' + rolledPick(), e.at);
