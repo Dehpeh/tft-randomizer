@@ -158,6 +158,14 @@
     const shopT = window.TFTShopTest
       ? window.TFTShopTest.run((s) => shopLines.push(s))
       : { pass: 0, fail: 0 };
+    const timeLines = [];
+    const timeT = window.TFTDetectTest
+      ? window.TFTDetectTest.run((s) => timeLines.push(s))
+      : { pass: 0, fail: 0 };
+    checks.push(['One augment screen reports as one finding, however the score wobbles', timeT.fail === 0,
+      `${timeT.pass} of ${timeT.pass + timeT.fail}`]);
+    featureLines.push('', ...timeLines);
+
     checks.push(['Shop reads the costs it was measured on, and stays quiet otherwise', shopT.fail === 0,
       `${shopT.pass} of ${shopT.pass + shopT.fail}`]);
     featureLines.push('', ...shopLines);
