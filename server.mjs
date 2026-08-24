@@ -78,10 +78,26 @@ async function serveVideo(req, res) {
   try { size = statSync(DEV_VIDEO).size; } catch { res.writeHead(404).end('no video'); return; }
 
   // Seeking needs range support, and the lab seeks constantly.
+  /* Every stream has to be torn down with the response it was serving.
+
+     A browser seeking through a long video abandons requests constantly — it
+     asks for a range, changes its mind, and moves on — and a piped ReadStream
+     whose response died keeps its file handle. Scanning a 36-minute recording
+     is a couple of thousand seeks, which is a couple of thousand handles, and
+     the server falls over with EMFILE partway through the run it was serving.
+     Which it did, taking a ten-minute measurement with it. */
+  const pipe = (stream) => {
+    const kill = () => stream.destroy();
+    res.on('close', kill);
+    res.on('finish', kill);
+    stream.on('error', kill);
+    stream.pipe(res);
+  };
+
   const range = req.headers.range;
   if (!range) {
     res.writeHead(200, { 'content-type': 'video/mp4', 'content-length': size, 'accept-ranges': 'bytes' });
-    createReadStream(DEV_VIDEO).pipe(res);
+    pipe(createReadStream(DEV_VIDEO));
     return;
   }
   const m = /bytes=(\d*)-(\d*)/.exec(range) || [];
@@ -93,7 +109,7 @@ async function serveVideo(req, res) {
     'accept-ranges': 'bytes',
     'content-length': end - start + 1,
   });
-  createReadStream(DEV_VIDEO, { start, end }).pipe(res);
+  pipe(createReadStream(DEV_VIDEO, { start, end }));
 }
 
 async function saveFrame(req, res) {
