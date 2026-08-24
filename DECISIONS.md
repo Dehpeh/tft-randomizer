@@ -191,6 +191,49 @@ which.
 > non-16:9 aspect, or a localised client would all break it. Have two or three
 > people replay their own recordings in `/lab` before relying on it.
 
+**Three of the five detectors need no picture.** Template matching is the
+strongest tool here and it is what made the augment screen work, but it has a
+cost: someone has to be at the moment, in the game, on the hardware, to capture
+the template. That is a person and a game lining up, and it is why four
+matchers sat declared-but-empty for weeks.
+
+Three of them turn out not to need one, because the thing being asked is about
+shape or colour rather than about appearance:
+
+| Restriction | The question, restated | How it is answered |
+| --- | --- | --- |
+| Level/roll to 0 gold at 4-2 | Is the gold counter a lone zero | One glyph, a hole through the middle, and equal ink above and below it |
+| Built Different | Is any trait active | Is anything in the trait strip warm and saturated rather than grey |
+| No 3-star | Are there three star pips | Three small bright-gold blobs, level, evenly spaced |
+
+These compute from first principles at any resolution with no calibration, and
+`lib/features.test.js` checks the geometry against shapes drawn in code: a zero
+rasterised from a 5x7 font is recognised at five capture scales, and 1 through
+9 plus 10/20/48/60/80 are all rejected. The awkward case is a closed 4 — it has
+an enclosed hole near the middle of its box, so hole-detection alone calls it a
+zero. What separates them is that a zero is a ring, with the same stroke above
+the hole and below it, where a 4 hangs a long stem below a small triangle.
+
+**They ship off anyway.** Passing on drawn shapes means the algorithm does what
+it claims; it says nothing about TFT’s font, its antialiasing, its compression,
+or whether the box is even on the right part of the screen. That is precisely
+the position the motion detector was in immediately before real footage
+destroyed it — 65 false augment calls in 15 minutes. So each one is listed on
+`/lab` as "off", with a button to turn it on for that browser after scoring it
+on a recording. The state a matcher is in is shown in three words — ready, off,
+waiting — because conflating "untested" with "tested" is exactly how an
+unscored detector ends up deciding a cash prize.
+
+**Which edge is worth a note differs per restriction.** Reporting every state
+change is a state dump, not an umpire’s note. Gold passes through zero most
+rounds of a normal game, so its arrival is capped at six notes with 45 seconds
+between them and reads as evidence rather than an alarm. Built Different is the
+opposite: the long stretch with nothing active is the compliant state and the
+moment a trait lights up is the breach, so it flags on the closing edge. Each
+matcher declares this next to itself in `lib/matchers.js`, and the proctor
+enforces it — which also stops one chatty detector eating the twelve
+screenshots a game is allowed.
+
 **Why `/lab` exists.** A detector nobody has scored is a guess. It replays a
 recording through the exact same `lib/detect.js` the live page runs — measuring
 a copy would be worthless — and scores it against what a human says happened.
@@ -245,12 +288,19 @@ deploys. They exist so the lab can be pointed at a recording outside the repo.
 
 ## Still open
 
-1. **Run the pre-tournament wipe** once everyone is ready to register for real.
+1. **Re-run the wipe if registration starts over.** It has been run once, on a
+   clean slate before the tournament; `api/admin.js` will do it again.
 2. **Prize eligibility for clean-playing ranks.** Gold and below carry no
    handicap and can win a cash prize. Decide deliberately rather than discover
    it on the night — a rank floor for prizes, or giving Gold 1 minor, are both
    one-line changes.
 3. **Proctor validation by more than one person**, per the risk above.
-4. **The site becomes the tournament hub.** The randomizer is a page, not the
+4. **Score the three shape detectors on real footage.** They are written,
+   tested against drawn shapes, and switched off. Turning one on is a button on
+   `/lab`; earning it is a replay of a real game where it fires when it should
+   and stays quiet when it should not. Until that happens they are guesses with
+   good manners. The carousel matcher still wants a captured picture, and until
+   someone takes it, the clip button is what covers a carousel.
+5. **The site becomes the tournament hub.** The randomizer is a page, not the
    app: `/` can become the front page with dates, format and signups while
    everything here keeps working.

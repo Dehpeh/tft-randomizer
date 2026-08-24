@@ -307,6 +307,7 @@
 
     state.startedAt = Date.now();
     state.augmentSeen = 0;
+    Object.keys(matchSeen).forEach((k) => delete matchSeen[k]);
     state.detector = D.createDetector({ region: state.region || DEFAULT_REGION });
 
     $('live').hidden = false;
@@ -405,6 +406,29 @@
     paintTiles();
   }
 
+  /* Left to itself a matcher reports every edge, and some of these things happen
+     over and over in a normal game — gold touches zero most rounds. A note for
+     each would bury the one that matters and burn the twelve screenshots a game
+     is allowed. So each matcher declares which edge is worth a note, how long to
+     wait before repeating itself, and how many it gets in total. */
+  const matchSeen = {};
+
+  function noteMatch(e, edge, fallback) {
+    const m = (window.TFTMatchers && window.TFTMatchers.byId(e.matcher)) || {};
+    if ((m.flagOn || 'both') !== 'both' && m.flagOn !== edge) return;
+
+    const seen = matchSeen[e.matcher] || (matchSeen[e.matcher] = { n: 0, last: -1e9 });
+    if (m.max && seen.n >= m.max) return;
+    if (m.minGap && e.at - seen.last < m.minGap) return;
+    seen.n++;
+    seen.last = e.at;
+
+    const said = (m.says || {})[edge] || fallback;
+    const because = window.TFTMatchers && window.TFTMatchers.why(e.matcher);
+    shoot();
+    addFlag('note', because ? said + ' — ' + because : said, e.at);
+  }
+
   /* Screenshots are taken here rather than in the detector: evidence is this
      page's job, judgement is that file's. */
   function handle(e) {
@@ -419,14 +443,8 @@
        which card was taken is left to whoever looks at the picture, because
        nothing in the pixels reliably says — motion across the three cards at
        the moment of choosing measured 33/33/33 on real footage. */
-    if (e.kind === 'match-open') {
-      shoot();
-      addFlag('note', e.label + ' seen', e.at);
-    }
-    if (e.kind === 'match-close') {
-      shoot();
-      addFlag('note', e.label + ' ended after ' + e.openFor + 's', e.at);
-    }
+    if (e.kind === 'match-open') noteMatch(e, 'open', e.label + ' seen');
+    if (e.kind === 'match-close') noteMatch(e, 'close', e.label + ' ended after ' + e.openFor + 's');
     if (e.kind === 'augment-open') {
       shoot();
       addFlag('augment', 'Augment screen' + rolledPick(), e.at);

@@ -145,6 +145,15 @@
       ['Which card was taken is never guessed', !take || take.third === null, take ? String(take.third) : 'no take'],
     ];
 
+    /* The shape tests carry their own checks — drawn digits, a grey strip, three
+       pips — so run them here rather than keeping a second button for them. */
+    const featureLines = [];
+    const feature = window.TFTFeaturesTest
+      ? window.TFTFeaturesTest.run((s) => featureLines.push(s))
+      : { pass: 0, fail: 0 };
+    checks.push(['Shape tests agree with drawn shapes', feature.fail === 0,
+      `${feature.pass} of ${feature.pass + feature.fail}`]);
+
     const passed = checks.filter((c) => c[1]).length;
     $('selfResults').innerHTML = `
       <div class="admin__lobby"><span class="admin__name">${passed}/${checks.length} passed</span>
@@ -154,7 +163,8 @@
           <span class="tag ${ok ? 'tag--live' : 'tag--closed'}">${ok ? 'pass' : 'fail'}</span>
           <span class="admin__name" style="font-size:0.95rem">${esc(label)}</span>
           <span class="admin__nums">${esc(note)}</span>
-        </div>`).join('')}`;
+        </div>`).join('')}
+      <pre class="admin__nums" style="white-space:pre-wrap;margin-top:0.75rem;font-size:0.65rem">${esc(featureLines.join('\n'))}</pre>`;
     toast(`${passed}/${checks.length} passed`);
   });
 
@@ -461,15 +471,43 @@
     const pick = $('matcherPick');
     const keep = pick.value;
     pick.innerHTML = M.MATCHERS.map((m) =>
-      `<option value="${m.id}">${esc(m.label)}${m.template ? ' ✓' : ' — needs a picture'}</option>`).join('');
+      `<option value="${m.id}">${esc(m.label)}${tail(m)}</option>`).join('');
     if (keep) pick.value = keep;
 
     $('matcherList').innerHTML = M.MATCHERS.map((m) => `
       <div class="admin__lobby">
-        <span class="tag ${m.template ? 'tag--live' : 'tag--closed'}">${m.template ? 'ready' : 'waiting'}</span>
+        <span class="tag ${stateOf(m).cls}">${stateOf(m).word}</span>
         <span class="admin__name" style="font-size:0.95rem">${esc(m.label)}</span>
         <span class="admin__nums">${esc(m.watches)}<br>${esc(m.evidence)}</span>
+        ${m.untested ? `<button class="btn btn--pill" data-arm="${m.id}">${m.on ? 'Turn off' : 'Turn on'}</button>` : ''}
       </div>`).join('');
+
+    /* Turning one on is deliberately a button on this page and nowhere else.
+       Scoring it on footage first is the whole point of the page. */
+    $('matcherList').querySelectorAll('[data-arm]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const m = M.byId(b.dataset.arm);
+        m.on = !m.on;
+        renderMatchers();
+        $('matcherNote').textContent = m.on
+          ? `"${m.label}" is on for this browser. Run a replay before trusting it.`
+          : `"${m.label}" is off again.`;
+      });
+    });
+  }
+
+  /* A matcher is in one of three states, and conflating the last two is how an
+     untested detector ends up looking like a tested one. */
+  function stateOf(m) {
+    if (!m.template) return { cls: 'tag--closed', word: 'waiting' };
+    if (m.untested) return m.on ? { cls: 'tag--live', word: 'on, unscored' } : { cls: 'tag--closed', word: 'off' };
+    return { cls: 'tag--live', word: 'ready' };
+  }
+
+  function tail(m) {
+    if (!m.template) return ' — needs a picture';
+    if (m.untested) return m.on ? ' — on, unscored' : ' — off';
+    return ' ✓';
   }
 
   function currentMatcher() { return M.byId($('matcherPick').value) || M.MATCHERS[0]; }
@@ -497,11 +535,21 @@
     if (!m.template) { $('matcherNote').textContent = 'Nothing to score against yet — capture it first.'; return; }
     const probe = Object.assign({}, m, { region: state.region });
     const sc = M.score(frameAt(), probe);
-    $('matcherNote').textContent = `This frame scores ${sc.toFixed(2)} against "${m.label}". Above ${m.threshold} counts as a sighting.`;
+
+    /* A shape test can say why, and why is the useful part: "3 digits, so not a
+       lone zero" tells you the box is on the wrong thing, where 0.00 does not. */
+    const because = M.why(m.id);
+    $('matcherNote').textContent = m.kind
+      ? `"${m.label}" says ${sc >= 1 ? 'yes' : 'no'} on this frame — ${because}.`
+      : `This frame scores ${sc.toFixed(2)} against "${m.label}". Above ${m.threshold} counts as a sighting.`;
   });
 
   $('matcherCapture').addEventListener('click', async () => {
     const m = currentMatcher();
+    if (m.kind) {
+      $('matcherNote').textContent = `"${m.label}" works from shape rather than from a picture, so there is nothing to capture. Move the box onto the right place, score a few frames, then turn it on.`;
+      return;
+    }
     const tpl = M.capture(frameAt(), state.region, m.w, m.h);
     M.saveLocal(m.id, tpl, state.region);
     renderMatchers();
