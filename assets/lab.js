@@ -581,6 +581,118 @@
   renderMatchers();
   showMatcherBox();
 
+  /* ---------- play the whole game back ----------
+     The detector was always replayable; what was not was everything written on
+     top of it, and that is where the damage came from. A live lobby produced
+     ten augment notes for one screen, every one labelled 4-2, and none of that
+     is visible in a detector event — it is the stage counter, the gates, the
+     rules. So the note-writing moved into lib/notes.js and this runs it.
+
+     Two things it does on purpose. It samples every 500ms, because the live
+     page does and sampling at a different rate is exactly what hid the flap.
+     And it applies real restrictions, because most notes only exist when a
+     rolled rule cares — a shop reroll is silent unless somebody had to lock a
+     slot. */
+  const N = window.TFTNotes;
+
+  function fillSimRules() {
+    const pick = $('simRules');
+    if (!pick || !window.TFT) return;
+    pick.innerHTML = window.TFT.ALL.map((r) =>
+      `<option value="${r.id}">${esc(r.text.length > 58 ? r.text.slice(0, 58) + '…' : r.text)}</option>`).join('');
+  }
+  fillSimRules();
+
+  /* The lab has no roll, so a chosen restriction is given its first option for
+     any detail it has — enough for the rules that read one, like which slot. */
+  function chosenPicks() {
+    const ids = Array.from(($('simRules') || {}).selectedOptions || []).map((o) => o.value);
+    return ids.map((id) => {
+      const r = window.TFT.byId(id);
+      if (!r) return null;
+      return Object.assign({}, r, {
+        details: (r.details || []).map((d) => ({ label: d.label, value: d.options[0] })),
+      });
+    }).filter(Boolean);
+  }
+
+  $('simStop').addEventListener('click', () => { state.running = false; });
+
+  $('simRun').addEventListener('click', async () => {
+    if (!state.duration) { $('simNote').textContent = 'Load a recording first.'; return; }
+    const from = parseClock($('simFrom').value) || 0;
+    const to = Math.min(parseClock($('simTo').value) || state.duration, state.duration);
+
+    const picks = chosenPicks();
+    const rules = N.rulesFrom(picks, (p) => p.details || []);
+    const book = N.createNotebook({ rules: rules, matchers: M });
+    const det = D.createDetector({
+      detectStill: false, detectAugments: true,
+      watchShop: true, watchTraits: Boolean(rules.traitBan || rules.builtDifferent),
+    });
+
+    const notes = [];
+    const seenFrames = new Set();
+    let repeats = 0;
+    let stuck = 0;
+    let reached = from;
+    state.running = true;
+    $('simOut').innerHTML = '';
+    $('simNote').textContent = 'Playing back…';
+
+    for (let t = from; t < to && state.running; t += 0.5) {
+      await seek(t);
+      const f = frameAt();
+
+      /* A hidden pane can freeze the video and hand back the same frame every
+         time, which once produced a whole evaluation of identical scores.
+
+         But a repeated frame is not proof of that: a loading screen is
+         genuinely static, and counting cumulative repeats aborted this run 27
+         seconds in on a perfectly good recording. What distinguishes a frozen
+         texture is that it never recovers, so only a long unbroken run of
+         identical frames counts as one. The rest are reported and the run
+         continues, which is all that was ever needed — the original failure was
+         reporting results from repeats without noticing, not the repeats. */
+      let sig = 0;
+      for (let i = 0; i < f.data.length; i += 997) sig += f.data[i];
+      if (seenFrames.has(sig)) {
+        repeats++;
+        stuck++;
+        if (stuck > 120) {
+          $('simNote').textContent = 'The video stopped producing new frames for a minute — reload the page and run it again.';
+          state.running = false;
+          break;
+        }
+      } else { stuck = 0; }
+      seenFrames.add(sig);
+
+      det.push(f, t).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
+      reached = t;
+
+      if (notes.length && notes.length % 4 === 0) paintSim(notes, from, reached, to, true);
+    }
+    const cut = state.running === false && reached < to - 0.5;
+    state.running = false;
+    paintSim(notes, from, reached, to, false, cut, repeats);
+  });
+
+  function paintSim(notes, from, reached, to, running, cut, repeats) {
+    $('simOut').innerHTML = notes.length ? notes.map((n) => `
+      <div class="admin__lobby">
+        <span class="tag ${n.kind === 'augment' ? 'tag--live' : 'tag--closed'}">${esc(n.kind)}</span>
+        <span class="admin__name" style="font-size:0.95rem">${clock(n.at)}</span>
+        <span class="admin__nums">${esc(n.note)}</span>
+      </div>`).join('')
+      : '<div class="log__empty">No notes — which is the right answer for a game where nothing was flagged.</div>';
+
+    if (running) { $('simNote').textContent = `${notes.length} notes so far, up to ${clock(reached)}…`; return; }
+    $('simNote').textContent = `${notes.length} note${notes.length === 1 ? '' : 's'} across ${Math.round(reached - from)}s`
+      + (cut ? ' (stopped early — the rest was not looked at)' : '')
+      + (repeats ? ` · ${repeats} repeated frames skipped` : '')
+      + '. This is what the gamemaster would have received.';
+  }
+
   /* ---------- the shop ----------
      Two questions, and they are different questions. "What does it think is in
      the shop right now" checks the weak half — the cost colours — against a

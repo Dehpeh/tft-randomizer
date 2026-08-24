@@ -134,6 +134,29 @@
 
   <!-- ============ CALIBRATE ============ -->
   <section class="gmpanel">
+    <div class="section-label">/ PLAY THE WHOLE GAME BACK</div>
+    <p class="hint">Runs a recording through the same detector and the same note-writing the live page uses, at the same twice-a-second sampling, and prints the feed a gamemaster would have received. Pick the restrictions to apply and it answers the only question that matters: what would this player's game have produced.</p>
+    <div class="controls-row" style="margin-top:1rem">
+      <div class="field">
+        <label for="simRules">/ Restrictions</label>
+        <select id="simRules" multiple size="6" style="min-width:22rem"></select>
+      </div>
+      <div class="field">
+        <label for="simFrom">/ From (mm:ss)</label>
+        <input id="simFrom" type="text" placeholder="00:00">
+      </div>
+      <div class="field">
+        <label for="simTo">/ To (mm:ss)</label>
+        <input id="simTo" type="text" placeholder="40:00">
+      </div>
+      <button class="btn btn--accent" id="simRun">Play it back</button>
+      <button class="btn" id="simStop">Stop</button>
+    </div>
+    <p class="hint" id="simNote">&nbsp;</p>
+    <div class="admin__table" id="simOut"></div>
+  </section>
+
+  <section class="gmpanel">
     <div class="section-label">/ THE SHOP</div>
     <p class="hint">Six restrictions live in the shop row &mdash; lock a slot, 5-costs banned, buy every 1-cost &mdash; and none of them needs a picture. A reroll replaces every unlocked card at once, a purchase empties exactly one slot, and the locked slot is whatever survives a reroll. That is change over time rather than appearance, so it works at any resolution. Cost comes from the colour of the name bar, which is the weaker half and the part worth checking here.</p>
     <div class="controls-row" style="margin-top:1rem">
@@ -202,6 +225,8 @@
 <script src="/lib/features.js"></script>
 <script src="/lib/shop.js"></script>
 <script src="/lib/matchers.js"></script>
+<script src="/lib/restrictions.js"></script>
+<script src="/lib/notes.js"></script>
 <script src="/lib/features.test.js"></script>
 <script src="/lib/shop.test.js"></script>
 <script src="/lib/detect.test.js"></script>
