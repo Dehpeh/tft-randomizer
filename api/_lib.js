@@ -91,6 +91,7 @@ function newSession(code, name) {
     results: {},         // game -> { placements: { playerId -> 1..8 }, at, by }
     penalties: [],       // { id, playerId, game, reason, at, by }  — human decisions
     flags: [],           // { playerId, game, kind, note, at }      — machine observations
+    summaries: {},       // game -> playerId -> { rows, at }         — counted states, replaced not appended
     v: 0,
   };
 }
@@ -106,6 +107,25 @@ const newSeat = (account, isGm) => ({
   isGm: Boolean(isGm),
   joinedAt: Date.now(),
 });
+
+/* Proctor output belongs to the gamemaster. A player gets their own rows back —
+   they are the only thing here that is about them — and nobody else's.
+
+   The flag list does not do this yet: it is sent to every client and merely
+   hidden in the UI, so a player who opens the network tab can read the whole
+   lobby's notes. Worth tightening the same way; not changed here because it
+   would be a silent change to something already live. */
+function scopedSummaries(session, viewerId) {
+  const all = session.summaries || {};
+  const isGm = Boolean(viewerId && session.players[viewerId] && session.players[viewerId].isGm);
+  if (isGm) return all;
+  if (!viewerId) return {};
+  const mine = {};
+  Object.keys(all).forEach((game) => {
+    if (all[game] && all[game][viewerId]) mine[game] = { [viewerId]: all[game][viewerId] };
+  });
+  return mine;
+}
 
 function publicSession(session, viewerId) {
   const players = Object.values(session.players)
@@ -125,6 +145,7 @@ function publicSession(session, viewerId) {
     results: session.results || {},
     penalties: session.penalties || [],
     flags: session.flags || [],
+    summaries: scopedSummaries(session, viewerId),
     you: viewerId || null,
     isGm: Boolean(viewerId && session.players[viewerId] && session.players[viewerId].isGm),
   };

@@ -693,6 +693,33 @@
     $('poolPanel').hidden = !view.poolOpen;
     renderPenalties();
     renderFlags();
+    renderSummaries();
+  }
+
+  /* Where each counted state finished. Separate from the notes above it because
+     it answers a different question: a note is a moment somebody has to judge,
+     a row is how a whole rule went and needs no judging at all.
+
+     A clean row is worth as much space as a breached one. "Slot 3 held on 47 of
+     47 rerolls" is the answer to the question the restriction asked, and a
+     gamemaster who sees nothing cannot tell that apart from a proctor that was
+     never running. */
+  function renderSummaries() {
+    const s = view.session;
+    const byPlayer = ((s.summaries || {})[view.game]) || {};
+    const ids = Object.keys(byPlayer).filter((id) => ((byPlayer[id] || {}).rows || []).length);
+    if (!ids.length) {
+      $('summaryList').innerHTML = '<div class="log__empty">No counts yet. They arrive while a player&rsquo;s proctor is running.</div>';
+      return;
+    }
+    $('summaryList').innerHTML = ids.map((id) => {
+      const who = (s.players.find((x) => x.id === id) || {}).display || id;
+      const rows = byPlayer[id].rows;
+      const marks = rows.map((r) => '<div class="tallyrow' + (r.breach ? ' tallyrow--breach' : '') + '">'
+        + '<span class="tallyrow__mark">' + (r.breach ? '!' : '&middot;') + '</span>'
+        + '<span class="tallyrow__text">' + esc(r.text) + '</span></div>').join('');
+      return '<div class="tallycard"><div class="tallycard__who">' + esc(who) + '</div>' + marks + '</div>';
+    }).join('');
   }
 
   /* Machine notes, kept visually apart from penalties: one is an observation,

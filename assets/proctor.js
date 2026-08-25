@@ -442,6 +442,8 @@
     $('stopBtn').hidden = true;
     $('clipBtn').hidden = true;
     addFlag('stopped', 'Proctor stopped', 0);
+    /* The last word on every count, sent once the game is actually over. */
+    sendSummary();
     toast('Stopped watching');
   }
 
@@ -487,6 +489,13 @@
      them labelled 4-2: the detector was testable and the writing on top of it
      was not. */
   let notebook = null;
+
+  /* Where every counted state stands right now. Empty until the notebook has
+     seen something, and empty for a player whose rules are not machine
+     checkable — both of which are honest answers rather than missing ones. */
+  function summaryRows() {
+    return notebook && notebook.summary ? notebook.summary() : [];
+  }
 
   function handle(e) {
     if (!notebook) {
@@ -642,6 +651,9 @@
               code: state.code,
               game: state.game,
               flags: [{ kind: f.kind, note: f.note, at: f.at, seconds: f.seconds }],
+              /* Counts replace rather than append, so riding along with every
+                 note keeps them current without growing the list. */
+              summary: summaryRows(),
             }),
           });
           if (res.ok) { f.sent = true; sent += 1; }
@@ -656,6 +668,23 @@
 
   /* Anything that failed gets picked up again, including after the game ends. */
   setInterval(flush, 15000);
+
+  /* A player who breaks nothing sends no notes, so riding the counts along with
+     a note would never reach a gamemaster for the one player most worth being
+     sure about. The rows go on their own too — they replace, so this is one
+     small POST rather than anything accumulating. */
+  async function sendSummary() {
+    const summary = summaryRows();
+    if (!summary.length || !state.code) return;
+    try {
+      await fetch('/api/flag', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: state.code, game: state.game, summary: summary }),
+      });
+    } catch (e) { /* offline; the next tick carries the same rows */ }
+  }
+  setInterval(() => { if (state.stream) sendSummary(); }, 60000);
 
   function updateLastFlag(note, seconds) {
     for (let i = state.flags.length - 1; i >= 0; i--) {

@@ -1750,3 +1750,44 @@ button, input, select { font-weight: 300; }
   background: #000;
 }
 .flagrow--clip { align-items: flex-start; }
+
+/* ============ COUNTED STATES ============
+   How a whole rule went, as against a moment somebody has to judge. Grouped by
+   player because that is the question being asked: how did Reverie do, not what
+   happened at 12:04.
+
+   Breach reads as a mark and a heavier ink before it reads as a colour: two of
+   the five themes collapse the accents to a single value, so colour alone could
+   never have carried this. */
+.tallycard {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--panel);
+}
+.tallycard__who {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bright);
+  margin-bottom: 0.4rem;
+}
+.tallyrow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.15rem 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.tallyrow__mark {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  flex: none;
+  width: 0.75rem;
+  opacity: 0.55;
+}
+.tallyrow--breach .tallyrow__mark { color: var(--red); opacity: 1; }
+.tallyrow--breach .tallyrow__text { color: var(--bright); }
