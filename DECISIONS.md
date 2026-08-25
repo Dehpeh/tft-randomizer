@@ -400,17 +400,31 @@ switch; "human" means no detector, by decision.
 | AFK a whole stage | same, every round in it | watched |
 | Keep the 1-1 pet on the bench | a bench square held for minutes, then empty | watched |
 | Built Different | colour running down the trait column | off, see below |
-| No 3-star unit | three level gold pips | off, see below |
+| No 3-star unit | not built — see below | human for now |
 | Only Risky wisps | wants a picture of the wisp screen | not built |
 | Ban a trait | needs the trait named, not counted | human |
 | Declare left or right | perspective board, overlapping units | human |
 | No line from a guide | not on screen at all | human |
 | Hands, layers, drinking | would need a webcam | out of scope by design |
 
-**The two that are off.** Built Different works on the frames it was built
-from and reads 95 "nothing active" frames in the second game against 3 in the
-first, which is not explained; until it is, it stays off. The 3-star detector
-fired 59 times in one game, which is nonsense, and has not been rebuilt.
+**Built Different is off** because it works on the frames it was built from and
+reads 95 "nothing active" frames in the second game against 3 in the first,
+which is not explained. Until it is, it stays off.
+
+**The 3-star detector was removed rather than left switched off.** The idea was
+that three star pips are three small bright-gold blobs, level and evenly
+spaced, so no picture would be needed. Over a real game it fired on 16 of 75
+samples — and a 3-star is permanent once it exists, so anything intermittent is
+wrong by construction. Looking at what it caught settled it: a striped plant, a
+wing, a patch of golden glow, a stretch of pink board. TFT boards are full of
+small gold things in rows, and no threshold separates them from pips.
+
+Doing it properly needs the search narrowed to where pips can actually be — the
+board's hex centres, which are in perspective and would have to be measured —
+or a template captured from a real 3-star, which needs a game containing one.
+Neither is hard; both need work this has not had. Reporting nothing beats
+reporting scenery, and dead code that looks like a feature is worse than an
+empty row in this table.
 
 **The three that are human, and why that is not laziness.** A banned trait has
 to be named — counting activations was the workaround and the count drifts at
