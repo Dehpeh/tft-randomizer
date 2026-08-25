@@ -426,10 +426,17 @@ same blind spot that killed the first attempt — fixing the hue assumption did
 not fix the tier assumption underneath it. A rule built on colour keeps failing
 on the tiers that have least of it.
 
-The likely fix is to compare each hexagon against the dimmest one in its own
-column instead of an absolute threshold, since a panel nearly always carries
-inactive traits at the bottom and would then supply its own reference. That is
-a fourth attempt and it is not going in unscored.
+A fourth attempt was written and scored on those same frames — judge each
+hexagon against the dimmest in its own column — and it is worse, answering 3
+everywhere including where the truth is 0, because the panel has a vertical
+gradient of its own. Recorded so nobody repeats it.
+
+What is left to try is reading the fraction rather than the colour. An inactive
+trait prints a fraction like 1 of 2, an active one prints its breakpoint list,
+and the digit machinery already built for the round indicator can tell those
+apart without caring about tier or saturation at all — which is the assumption
+all four colour attempts have died on. That is the approach with a reason to
+work. It has not been built.
 
 **The 3-star detector was removed rather than left switched off.** The idea was
 that three star pips are three small bright-gold blobs, level and evenly
