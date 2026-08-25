@@ -82,6 +82,8 @@
     stillSince: null,
     stillReported: false,
     detector: null,
+    clipper: null,
+    clipStream: null,      // rolling recorder, so findings carry seconds not frames
     region: null,        // normalised {x,y,w,h} for the augment band
     calibrating: false,
     rolledAugment: null,
@@ -296,8 +298,11 @@
       return;
     }
     try {
+      /* 4fps was enough when a finding was one still. A clip is watched, so the
+         capture has to carry enough frames to be worth watching; the detector
+         still samples it twice a second whatever arrives. */
       state.stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 4 },
+        video: { frameRate: { ideal: 15, max: 30 } },
         audio: false,
       });
     } catch (e) {
@@ -316,6 +321,36 @@
     state.startedAt = Date.now();
     Object.keys(matchSeen).forEach((k) => delete matchSeen[k]);
     Object.keys(shopSeen).forEach((k) => delete shopSeen[k]);
+    /* A rolling recorder, so every finding can carry the seconds around it
+       rather than one frame of it. Started here and never stopped until the
+       share ends, because the lead-up to a finding has already happened by the
+       time anything is detected.
+
+       It records a CLONE of the video track, capped at 960 wide, and the
+       detector keeps the original at full size. That split is not tidiness: the
+       gold counter is about fifty pixels across at 1080p and reads perfectly,
+       and at 1440p-downscaled-to-1440 it already starts coming back unreadable.
+       Measured — gold read 8 of 8 at full width and left 3 of 8 unread once the
+       frame was scaled down. So the thing that reads numbers gets every pixel,
+       and the thing a person watches gets a small one. */
+    state.clipStream = null;
+    try {
+      const track = state.stream.getVideoTracks()[0];
+      const small = track.clone();
+      if (small.applyConstraints) {
+        await small.applyConstraints({ width: { max: 960 }, frameRate: { max: 15 } });
+      }
+      state.clipStream = new MediaStream([small]);
+    } catch (e) {
+      /* No clone: record the original and let the bitrate hold the size down. */
+      state.clipStream = state.stream;
+    }
+
+    state.clipper = window.TFTClipper ? window.TFTClipper.createClipper(state.clipStream, {
+      before: 5, after: 3, bps: 600000,
+    }) : null;
+    if (state.clipper && !state.clipper.start()) state.clipper = null;
+
     /* The shop watcher is off unless this browser has turned it on in the lab,
        which is the same rule the shape matchers follow. */
     const shopOn = Boolean(window.TFTShop && window.TFTShop.on());
@@ -500,7 +535,7 @@
   }
 
   function addFlag(kind, note, at, seconds) {
-    const flag = { kind, note, at: Math.round(at || 0), seconds: seconds || 0, shot: state.pendingShot || null, sent: false, tries: 0 };
+    const flag = { kind, note, at: Math.round(at || 0), seconds: seconds || 0, shot: state.pendingShot || null, sent: false, tries: 0, clip: null, clipSent: false, clipTries: 0 };
     state.pendingShot = null;
     state.flags.push(flag);
     if (state.flags.length > MAX_SHOTS) {
@@ -508,6 +543,19 @@
       if (dropped) dropped.shot = null;
     }
     renderFlags();
+
+    /* And the clip: the buffer already holds the lead-up, so this only waits
+       for the seconds after. It resolves later than the note, which is on
+       purpose — the note and its still go immediately, and the clip catches up
+       when it is ready. */
+    if (state.clipper) {
+      state.clipper.clip().then((blob) => {
+        if (!blob) return;
+        const reader = new FileReader();
+        reader.onload = () => { flag.clip = reader.result; flush(); };
+        reader.readAsDataURL(blob);
+      }).catch(() => { /* recorder gone; the still still went */ });
+    }
 
     /* Straight out, without being asked.
 
@@ -528,13 +576,30 @@
 
   async function flush() {
     if (sending || !state.code) return;
-    const queue = state.flags.filter((f) => !f.sent && f.tries < 6);
+    const queue = state.flags.filter((f) => (!f.sent && f.tries < 6) || (f.clip && !f.clipSent && f.clipTries < 4));
     if (!queue.length) return;
     sending = true;
     let sent = 0;
 
     try {
       for (const f of queue) {
+        /* The clip goes as its own piece of evidence against the same note, so
+           a clip that is too big or arrives late never costs the note. */
+        if (f.clip && !f.clipSent && f.clipTries < 4) {
+          f.clipTries += 1;
+          try {
+            const res = await fetch('/api/evidence', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ code: state.code, game: state.game, kind: f.kind,
+                note: f.note + ' · clip', at: f.at, clip: f.clip }),
+            });
+            if (res.ok) { f.clipSent = true; f.clip = null; }
+            else if (res.status === 413 || res.status === 429) { f.clipSent = true; f.clip = null; }
+          } catch (e) { /* retried by the timer */ }
+        }
+
+        if (f.sent || f.tries >= 6) continue;
         f.tries += 1;
         try {
           if (f.shot) {
@@ -606,6 +671,8 @@
   window.addEventListener('beforeunload', () => {
     clearInterval(state.watchTimer);
     stopClock();
+    if (state.clipper) state.clipper.stop();
+    if (state.clipStream && state.clipStream !== state.stream) state.clipStream.getTracks().forEach((t) => t.stop());
     if (state.stream) state.stream.getTracks().forEach((t) => t.stop());
   });
 })();

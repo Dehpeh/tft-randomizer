@@ -1738,3 +1738,15 @@ button, input, select { font-weight: 300; }
   letter-spacing: -0.012em;
   color: var(--dim);
 }
+
+/* A proctor clip in the gamemaster's list. Wider than a still because it is
+   meant to be watched in place rather than opened in a tab, and controls only
+   fit at this size. */
+.flagrow__shot--clip {
+  width: 15rem;
+  max-width: 42vw;
+  height: auto;
+  border-radius: 3px;
+  background: #000;
+}
+.flagrow--clip { align-items: flex-start; }

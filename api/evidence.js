@@ -8,10 +8,19 @@
    have seen, and by then the game is over. The picture is the whole point, so it
    travels with the note.
 
-   Stills, not video. A clip of any useful length is megabytes, has to be encoded
-   on a machine that is currently running a game, and would have to be streamed
-   somewhere; a 480px JPEG is about 50KB and answers the same question. Three of
-   them per augment — as it opens, and as it closes — is the moment covered.
+   Stills AND clips. It started as stills only, on the reasoning that a clip is
+   megabytes and a JPEG answers the same question. It does not. A still of an
+   augment screen says a screen was open; it does not say which card the cursor
+   went to, whether they hovered two and changed their mind, or what the shop
+   held a second before it emptied. Every question a gamemaster actually has is
+   about a few seconds, not an instant.
+
+   What makes clips practical is recording them small and continuously: the
+   proctor keeps a rolling buffer at a low bitrate and a capped width, so eight
+   seconds is a few hundred KB rather than megabytes, and the lead-up is already
+   recorded by the time anything is detected. Stills are still sent for the same
+   moment, because they are cheap and they load instantly in the dashboard — the
+   clip is what you open when the still is not enough.
 
    Images live under their own keys, never inside the session document. The
    dashboard re-reads that document every few seconds for every player in the
@@ -22,8 +31,10 @@
 const lib = require('./_lib.js');
 const { store } = lib;
 
-const MAX_CHARS = 200000;      // ~150KB of JPEG; anything larger is a mistake
-const MAX_PER_GAME = 12;       // per player: three augments, opening and closing, plus slack
+const MAX_CHARS = 200000;       // ~150KB of JPEG; anything larger is a mistake
+const MAX_VIDEO_CHARS = 1400000; // ~1MB of webm: eight seconds at a capped width
+const MAX_PER_GAME = 12;        // stills per player per game
+const MAX_CLIPS_PER_GAME = 8;   // clips are worth more and cost more
 const KINDS = new Set(['augment', 'inactive', 'note']);
 
 const evKey = (code, id) => `tft:ev:${code}:${id}`;
@@ -46,7 +57,7 @@ module.exports = async function handler(req, res) {
 
     const bytes = Buffer.from(String(row.data || ''), 'base64');
     res.statusCode = 200;
-    res.setHeader('content-type', 'image/jpeg');
+    res.setHeader('content-type', row.mime || 'image/jpeg');
     res.setHeader('cache-control', 'private, max-age=3600');
     res.end(bytes);
     return;
@@ -65,17 +76,30 @@ module.exports = async function handler(req, res) {
   const game = Number(input.game || found.session.game || 1);
   if (!Number.isInteger(game) || game < 1 || game > 9) return lib.fail(res, 400, 'Game must be 1-9.');
 
-  const raw = String(input.image || '');
-  const m = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(raw);
-  if (!m) return lib.fail(res, 400, 'Expected a JPEG or PNG data URL.');
-  if (raw.length > MAX_CHARS) return lib.fail(res, 413, 'That image is too large — the proctor should be sending 480px stills.');
+  const raw = String(input.image || input.clip || '');
+  const isClip = Boolean(input.clip);
+  const m = isClip
+    ? /^data:(video\/[a-z0-9.;=+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(raw)
+    : /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(raw);
+  if (!m) return lib.fail(res, 400, isClip ? 'Expected a video data URL.' : 'Expected a JPEG or PNG data URL.');
+  if (raw.length > (isClip ? MAX_VIDEO_CHARS : MAX_CHARS)) {
+    return lib.fail(res, 413, isClip
+      ? 'That clip is too large — the proctor should be sending a few seconds at a capped width.'
+      : 'That image is too large — the proctor should be sending 480px stills.');
+  }
+  const mime = isClip ? m[1] : ('image/' + m[1]);
 
-  const already = (found.session.flags || [])
-    .filter((f) => f.playerId === found.playerId && f.game === game && f.ev).length;
-  if (already >= MAX_PER_GAME) return lib.fail(res, 429, 'Enough evidence stored for this game already.');
+  /* Stills and clips are counted separately, so a game full of clips cannot
+     starve the stills that make the dashboard readable, or the other way. */
+  const mine = (found.session.flags || [])
+    .filter((f) => f.playerId === found.playerId && f.game === game);
+  const already = mine.filter((f) => (isClip ? f.clip : f.ev && !f.clip)).length;
+  if (already >= (isClip ? MAX_CLIPS_PER_GAME : MAX_PER_GAME)) {
+    return lib.fail(res, 429, 'Enough evidence stored for this game already.');
+  }
 
   const id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-  await store.setIfAbsent(evKey(code, id), { data: m[2], by: found.playerId, at: Date.now() });
+  await store.setIfAbsent(evKey(code, id), { data: m[2], mime: mime, by: found.playerId, at: Date.now() });
 
   let error = null;
   const session = await store.update(lib.sKey(code), (s) => {
@@ -89,6 +113,7 @@ module.exports = async function handler(req, res) {
       note: String(input.note || '').slice(0, 160),
       at: Math.max(0, Math.min(60 * 60 * 6, Math.round(Number(input.at) || 0))),
       ev: id,
+      clip: isClip || undefined,
       postedAt: Date.now(),
     });
     if (s.flags.length > 400) s.flags = s.flags.slice(-400);

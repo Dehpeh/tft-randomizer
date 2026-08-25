@@ -703,12 +703,23 @@
     $('flagList').innerHTML = list.length
       ? list.slice().reverse().map((f) => {
         const who = (s.players.find((x) => x.id === f.playerId) || {}).display || f.playerId;
-        /* The still is loaded only when a note actually has one, so a lobby
-           with fifty notes does not fetch fifty images to draw a list. */
-        return `<div class="flagrow">
-          ${f.ev ? `<a class="flagrow__shot" href="/api/evidence?code=${esc(s.code)}&id=${esc(f.ev)}" target="_blank" rel="noopener">
-              <img src="/api/evidence?code=${esc(s.code)}&id=${esc(f.ev)}" alt="Screen at ${clockText(f.at)}" loading="lazy">
-            </a>` : '<span class="flagrow__shot flagrow__shot--none"></span>'}
+        const src = `/api/evidence?code=${esc(s.code)}&id=${esc(f.ev)}`;
+
+        /* Clips are the ones worth opening — a still says a screen was open, a
+           clip says what the cursor did. Neither is fetched until a note
+           actually has one, so a lobby with fifty notes draws a list rather
+           than downloading fifty files, and the clip only loads its first frame
+           until somebody presses play. */
+        const thumb = !f.ev
+          ? '<span class="flagrow__shot flagrow__shot--none"></span>'
+          : f.clip
+            ? `<video class="flagrow__shot flagrow__shot--clip" src="${src}" preload="metadata" controls muted playsinline></video>`
+            : `<a class="flagrow__shot" href="${src}" target="_blank" rel="noopener">
+                <img src="${src}" alt="Screen at ${clockText(f.at)}" loading="lazy">
+              </a>`;
+
+        return `<div class="flagrow${f.clip ? ' flagrow--clip' : ''}">
+          ${thumb}
           <span class="flagrow__text">${esc(who)} · ${clockText(f.at)} — ${esc(f.note)}</span>
         </div>`;
       }).join('')

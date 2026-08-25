@@ -1,0 +1,113 @@
+/* Recording what happened, not what one frame of it looked like.
+
+   A still of an augment screen says a screen was open. It does not say which
+   card the cursor went to, whether they hovered two and changed their mind, or
+   what the shop looked like a second before it emptied. Every question a
+   gamemaster actually has is about a few seconds, not an instant.
+
+   So this keeps a rolling buffer of the last few seconds at all times, and when
+   a finding fires it saves from before the moment to after it. The lead-up is
+   the part that matters and it has already happened by the time anything is
+   detected — which is the whole reason for recording continuously rather than
+   starting when something is spotted.
+
+   MediaRecorder does the encoding, so nothing here touches pixels. It runs on
+   the same getDisplayMedia stream the detector already reads, at a low bitrate
+   because these are evidence clips rather than highlights: eight seconds of
+   720p at 800kbps is under a megabyte, which is what makes sending every one of
+   them practical.
+
+   Nothing is uploaded continuously. The buffer lives in this tab and is thrown
+   away as it ages; only the seconds around a finding are ever sent. */
+
+(function (root) {
+  'use strict';
+
+  const MIME = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+    'video/mp4',
+  ];
+
+  function pickMime() {
+    if (typeof MediaRecorder === 'undefined') return null;
+    for (const m of MIME) {
+      try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) { /* older browsers */ }
+    }
+    return null;
+  }
+
+  /**
+   * createClipper(stream, opts)
+   *   before  seconds of lead-up to keep      (default 6)
+   *   after   seconds to keep recording after (default 4)
+   *   bps     video bitrate                   (default 800k)
+   */
+  function createClipper(stream, opts) {
+    const cfg = Object.assign({ before: 6, after: 4, bps: 800000 }, opts || {});
+    const mime = pickMime();
+    if (!mime) return null;
+
+    /* One-second slices, so the buffer can be trimmed to whole chunks and a
+       clip always starts on a keyframe-ish boundary. */
+    const SLICE_MS = 1000;
+    const keep = Math.ceil(cfg.before) + 2;
+
+    let rec = null;
+    let chunks = [];
+    let stopped = false;
+
+    function start() {
+      try {
+        rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: cfg.bps });
+      } catch (e) {
+        try { rec = new MediaRecorder(stream); } catch (e2) { return false; }
+      }
+      rec.ondataavailable = (e) => {
+        if (!e.data || !e.data.size) return;
+        chunks.push({ at: Date.now(), blob: e.data });
+        const cutoff = Date.now() - keep * 1000;
+        while (chunks.length > 2 && chunks[0].at < cutoff) chunks.shift();
+      };
+      rec.start(SLICE_MS);
+      return true;
+    }
+
+    /* Grab the buffered lead-up, then keep collecting for `after` seconds and
+       hand back one blob. The recorder is never stopped, so the buffer keeps
+       filling for the next finding. */
+    function clip() {
+      if (!rec || stopped) return Promise.resolve(null);
+      const lead = chunks.slice();
+      return new Promise((resolve) => {
+        const seen = [];
+        const grab = (e) => { if (e.data && e.data.size) seen.push(e.data); };
+        rec.addEventListener('dataavailable', grab);
+        setTimeout(() => {
+          rec.removeEventListener('dataavailable', grab);
+          const parts = lead.map((c) => c.blob).concat(seen);
+          if (!parts.length) { resolve(null); return; }
+          resolve(new Blob(parts, { type: mime }));
+        }, Math.round(cfg.after * 1000));
+      });
+    }
+
+    function stop() {
+      stopped = true;
+      try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) { /* already gone */ }
+      chunks = [];
+    }
+
+    return {
+      start: start,
+      clip: clip,
+      stop: stop,
+      mime: mime,
+      buffered: () => chunks.length,
+      seconds: () => (chunks.length ? Math.round((Date.now() - chunks[0].at) / 1000) : 0),
+    };
+  }
+
+  root.TFTClipper = { createClipper: createClipper, pickMime: pickMime };
+})(typeof window !== 'undefined' ? window : globalThis);
