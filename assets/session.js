@@ -713,7 +713,7 @@
         const thumb = !f.ev
           ? '<span class="flagrow__shot flagrow__shot--none"></span>'
           : f.clip
-            ? `<video class="flagrow__shot flagrow__shot--clip" src="${src}" preload="metadata" controls muted playsinline></video>`
+            ? `<video class="flagrow__shot flagrow__shot--clip" src="${src}" preload="metadata" controls muted playsinline data-clip="1"></video>`
             : `<a class="flagrow__shot" href="${src}" target="_blank" rel="noopener">
                 <img src="${src}" alt="Screen at ${clockText(f.at)}" loading="lazy">
               </a>`;
@@ -724,6 +724,32 @@
         </div>`;
       }).join('')
       : '<div class="log__empty">No proctor notes for this game.</div>';
+
+    fixClipDurations();
+  }
+
+  /* A webm written by MediaRecorder carries no duration — it was a live stream,
+     so nothing knew how long it would be when the header was written. Chrome
+     reports Infinity or NaN and refuses to scrub, which for a clip whose entire
+     point is "look at the second before this" is most of the value gone.
+
+     Seeking far past the end forces it to walk the file and work the duration
+     out, after which the scrubber behaves. Cheap, and only done once per
+     element. */
+  function fixClipDurations() {
+    $('flagList').querySelectorAll('video[data-clip]').forEach((v) => {
+      if (v.dataset.fixed) return;
+      v.dataset.fixed = '1';
+      v.addEventListener('loadedmetadata', () => {
+        if (v.duration !== Infinity && !Number.isNaN(v.duration)) return;
+        const back = () => {
+          v.removeEventListener('timeupdate', back);
+          v.currentTime = 0;
+        };
+        v.addEventListener('timeupdate', back);
+        v.currentTime = 1e6;
+      }, { once: true });
+    });
   }
 
   const clockText = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');

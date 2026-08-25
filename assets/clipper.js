@@ -13,9 +13,11 @@
 
    MediaRecorder does the encoding, so nothing here touches pixels. It runs on
    the same getDisplayMedia stream the detector already reads, at a low bitrate
-   because these are evidence clips rather than highlights: eight seconds of
-   720p at 800kbps is under a megabyte, which is what makes sending every one of
-   them practical.
+   because these are evidence clips rather than highlights. Measured on a
+   960x540 stream at 600kbps: an eight-second clip is 97KB and about 133,000
+   characters once base64ed, against an endpoint that allows 1.4 million. Eight
+   of them in a game is under a megabyte, which is what makes sending every one
+   practical rather than picking which findings deserve video.
 
    Nothing is uploaded continuously. The buffer lives in this tab and is thrown
    away as it ages; only the seconds around a finding are ever sent. */
@@ -23,6 +25,12 @@
 (function (root) {
   'use strict';
 
+  /* One wart worth knowing about: a webm written by MediaRecorder has no
+     duration in its header, because when the header was written nothing knew
+     how long the recording would be. Players report Infinity and will not
+     scrub until they have been made to walk the file. The dashboard does that
+     — see fixClipDurations in session.js. Rewriting the header properly needs
+     an EBML library and is not worth it for an eight-second clip. */
   const MIME = [
     'video/webm;codecs=vp9',
     'video/webm;codecs=vp8',
