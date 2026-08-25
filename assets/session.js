@@ -249,23 +249,28 @@
 
     $('boardName').textContent = s.name;
     $('boardCode').textContent = s.code;
-    $('gmPanel').hidden = !s.isGm;
+    /* Gated on the seat we are looking through, not on who is signed in, so
+       View as hides exactly what it would hide for that person. */
+    $('gmPanel').hidden = !canControl();
+    $('watchPanel').hidden = !canWatch();
+    $('tabControlBtn').hidden = !canControl();
 
     /* A player is here to read two things: what they are carrying and what
        everyone else is. The lobby's plumbing — the invite link, the seeds, the
        whole roster grid — is gamemaster furniture, so they get a list instead of
        a card wall and the standings fold away. */
-    $('copyLink').hidden = !s.isGm;
+    const asGm = canControl();
+    $('copyLink').hidden = !asGm;
     $('proctorLink').href = `/proctor?code=${s.code}&game=${view.game}`;
-    $('rosterGrid').hidden = !s.isGm;
-    $('rosterList').hidden = s.isGm;
-    $('rosterTitle').innerHTML = s.isGm
-      ? `Lobby <span class="count" id="rosterCount">(${s.players.length})</span>`
+    $('rosterGrid').hidden = !asGm;
+    $('rosterList').hidden = asGm;
+    $('rosterTitle').innerHTML = asGm
+      ? `Lobby <span class="count" id="rosterCount">(${playing(s.players).length})</span>`
       : 'Everyone else';
-    $('standingsTable').hidden = !s.isGm && !view.standingsOpen;
-    $('standingsToggle').classList.toggle('title--toggle', !s.isGm);
+    $('standingsTable').hidden = !asGm && !view.standingsOpen;
+    $('standingsToggle').classList.toggle('title--toggle', !asGm);
     const rosterCount = $('rosterCount');
-    if (rosterCount) rosterCount.textContent = `(${s.players.length})`;
+    if (rosterCount) rosterCount.textContent = `(${playing(s.players).length})`;
     $('boardStatus').textContent = s.open ? 'LOBBY OPEN' : 'LOBBY CLOSED';
 
     /* A closed lobby is a record, not a live board: it dims, says so at the top,
@@ -287,8 +292,11 @@
     renderGames();
     renderMine();
     renderRoster();
+    renderReferees();
     renderStandings();
-    if (s.isGm) renderGmPanel();
+    renderViewAs();
+    showTab(view.tab);
+    if (canControl()) renderGmPanel();
   }
 
   const placementsFor = (game) => ((view.session.results || {})[game] || {}).placements || {};
@@ -430,7 +438,7 @@
     const rolls = s.rolls[view.game] || {};
     const places = placementsFor(view.game);
 
-    const others = s.players.filter((p) => p.id !== s.you);
+    const others = playing(s.players).filter((p) => p.id !== s.you);
     if (!others.length) {
       $('rosterList').innerHTML = '<div class="log__empty">Nobody else has taken a seat yet.</div>';
       return;
@@ -460,7 +468,9 @@
     const rolls = s.rolls[view.game] || {};
     const places = placementsFor(view.game);
 
-    $('rosterGrid').innerHTML = s.players.map((p) => {
+    /* Referees have their own strip below. A referee in the card wall is a card
+       that says "no restrictions yet" for ever. */
+    $('rosterGrid').innerHTML = playing(s.players).map((p) => {
       const roll = rolls[p.id];
       const place = places[p.id];
       return `<article class="pcard${p.id === s.you ? ' pcard--me' : ''}">
@@ -668,7 +678,8 @@
       + `invite link ${location.origin}/s/${s.code}`;
 
     $('resultsGame').textContent = view.game;
-    $('resultsGrid').innerHTML = s.players.map((p) => `
+    /* Referees hold no seat, so there is no placement to give them. */
+    $('resultsGrid').innerHTML = playing(s.players).map((p) => `
       <label class="results__row">
         <span class="results__name">${esc(p.display)}</span>
         <select class="results__pick" data-player="${esc(p.id)}">
@@ -720,6 +731,97 @@
         + '<span class="tallyrow__text">' + esc(r.text) + '</span></div>').join('');
       return '<div class="tallycard"><div class="tallycard__who">' + esc(who) + '</div>' + marks + '</div>';
     }).join('');
+  }
+
+
+  /* ============ SECTIONS ============
+     One screen used to hold the roster, your plate, the roll controls,
+     placements, penalties, standings and the proctor feed, all live at once.
+     The gamemaster — who is usually playing too — had to find the two lines
+     that mattered.
+
+     Match is what is happening now. Game control is what you do between games.
+     Standings is the running total. */
+  const PANES = { match: 'tabMatch', control: 'tabControl', standings: 'tabStandings' };
+  view.tab = 'match';
+
+  function showTab(name) {
+    if (!PANES[name]) name = 'match';
+    if (name === 'control' && !canControl()) name = 'match';
+    view.tab = name;
+    Object.keys(PANES).forEach((k) => { $(PANES[k]).hidden = k !== name; });
+    document.querySelectorAll('#boardTabs button[data-tab]').forEach((b) => {
+      b.setAttribute('aria-current', b.dataset.tab === name ? 'page' : 'false');
+    });
+  }
+
+  /* ============ WHO AM I LOOKING AS ============
+     Borrowed from Discord's role view: it does not describe somebody else's
+     screen next to yours, it replaces yours with theirs until you exit. A
+     gamemaster arguing about what a player was shown should be looking at
+     what the player was shown. */
+  function seatOf(id) {
+    const s = view.session;
+    return s && (s.players || []).find((p) => p.id === id) || null;
+  }
+  /* The seat whose eyes we are using. Yourself unless you picked somebody. */
+  function actingSeat() {
+    const s = view.session;
+    if (!s) return null;
+    return seatOf(view.viewAs || s.you);
+  }
+  const actingRole = () => {
+    const seat = actingSeat();
+    if (!seat) return 'player';
+    return seat.isGm ? 'gm' : (seat.role === 'referee' ? 'referee' : 'player');
+  };
+  /* Real permission, not a pretend one: while viewing as someone else these
+     answer for them, so every panel below hides itself the same way it would
+     for the person whose seat it is. */
+  const canControl = () => actingRole() === 'gm';
+  const canWatch = () => actingRole() === 'gm' || actingRole() === 'referee';
+
+  function renderViewAs() {
+    const s = view.session;
+    if (!s) return;
+    const on = Boolean(view.viewAs && view.viewAs !== s.you);
+    $('asBtn').hidden = !s.isGm;
+    $('asBanner').hidden = !on;
+    if (on) {
+      const seat = seatOf(view.viewAs);
+      $('asWho').textContent = seat ? seat.display : view.viewAs;
+      $('asRole').textContent = seat
+        ? '· ' + (seat.isGm ? 'gamemaster' : seat.role === 'referee' ? 'referee' : 'player')
+        : '';
+    }
+  }
+
+  function pickViewAs() {
+    const s = view.session;
+    if (!s || !s.isGm) return;
+    const others = (s.players || []).filter((p) => p.id !== s.you);
+    if (!others.length) return toast('Nobody else has joined yet.');
+    const names = others.map((p, i) => (i + 1) + '. ' + p.display
+      + (p.role === 'referee' ? ' (referee)' : '')).join('\n');
+    const pick = window.prompt('View the lobby as:\n\n' + names + '\n\nNumber, or blank to cancel.');
+    const n = Number(pick);
+    if (!n || !others[n - 1]) return;
+    view.viewAs = others[n - 1].id;
+    showTab('match');
+    render();
+  }
+
+  /* ============ REFEREES ============ */
+  const isRef = (p) => p && p.role === 'referee';
+  const playing = (list) => (list || []).filter((p) => !isRef(p));
+
+  function renderReferees() {
+    const s = view.session;
+    const refs = (s.players || []).filter(isRef);
+    $('refsPanel').hidden = !refs.length || actingRole() === 'player';
+    if (!refs.length) return;
+    $('refsList').innerHTML = refs.map((p) => `<span class="ref">${esc(p.display)}`
+      + `${p.isGm ? ' <span class="tag tag--gm">GM</span>' : ''}</span>`).join('');
   }
 
   /* Machine notes, kept visually apart from penalties: one is an observation,
@@ -785,7 +887,7 @@
     const s = view.session;
     const sel = $('penaltyPlayer');
     const keep = sel.value;
-    sel.innerHTML = s.players.map((p) => `<option value="${esc(p.id)}">${esc(p.display)}</option>`).join('');
+    sel.innerHTML = playing(s.players).map((p) => `<option value="${esc(p.id)}">${esc(p.display)}</option>`).join('');
     if (keep) sel.value = keep;
 
     const list = s.penalties || [];
@@ -824,6 +926,15 @@
 
   /* Held locally until submitted, so a poll landing mid-entry cannot wipe a
      half-filled scoreboard. */
+
+  /* ============ SECTION TABS AND ROLE VIEW ============ */
+  $('boardTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-tab]');
+    if (b) showTab(b.dataset.tab);
+  });
+  $('asBtn').addEventListener('click', pickViewAs);
+  $('asExit').addEventListener('click', () => { view.viewAs = null; render(); });
+
   $('resultsGrid').addEventListener('change', () => {
     const draft = {};
     $('resultsGrid').querySelectorAll('select[data-player]').forEach((sel) => {

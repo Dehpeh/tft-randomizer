@@ -139,9 +139,53 @@
       </div>
     </section>
 
-    <section class="mine" id="mine"></section>
+    
+    <div class="asbanner" id="asBanner" hidden>
+      <span class="asbanner__dot" aria-hidden="true"></span>
+      <span class="asbanner__text">Viewing the lobby as <b id="asWho">&mdash;</b> <span id="asRole"></span>. This is their screen, with their permissions.</span>
+      <button class="btn" id="asExit">Back to your view</button>
+    </div>
 
-    <section class="gmpanel" id="gmPanel" hidden>
+    <nav class="boardtabs" id="boardTabs" aria-label="Lobby sections">
+      <button type="button" data-tab="match" aria-current="page">Match</button>
+      <button type="button" data-tab="control" id="tabControlBtn">Game control</button>
+      <button type="button" data-tab="standings">Standings</button>
+      <span class="boardtabs__gap"></span>
+      <button type="button" class="btn" id="asBtn" hidden>View as&hellip;</button>
+    </nav>
+
+    <div class="tabpane" id="tabMatch">
+<section class="mine" id="mine"></section>
+
+<section class="roster">
+      <div class="log__head-row">
+        <h2 class="title" id="rosterTitle">Lobby <span class="count" id="rosterCount"></span></h2>
+        <div class="log__tools">
+          <button class="btn" id="copyBoard">Copy for Discord</button>
+        </div>
+      </div>
+      <div class="roster__grid" id="rosterGrid"></div>
+      <div class="rosterlist" id="rosterList"></div>
+    </section>
+
+      <section class="refs" id="refsPanel" hidden>
+        <div class="section-label">/ REFEREES &mdash; NO SEAT, NO ROLL</div>
+        <div class="refs__row" id="refsList"></div>
+      </section>
+
+      <section class="gmpanel" id="watchPanel" hidden>
+        <div class="section-label" style="margin-top:1.5rem">/ HOW THE RULES WENT</div>
+        <p class="hint">One row per rule the machine could actually count, sent by each player&rsquo;s own proctor. A clean row is an answer, not an absence &mdash; it means the rule was watched and held.</p>
+        <div class="penalty__list" id="summaryList"></div>
+
+        <div class="section-label" style="margin-top:1.5rem">/ PROCTOR NOTES</div>
+        <p class="hint">Sent by players' own machines while they play, with the frame from that moment. Observations, not accusations &mdash; a note here is a place to look. Click a still to open it full size.</p>
+        <div class="penalty__list" id="flagList"></div>
+      </section>
+    </div>
+
+    <div class="tabpane" id="tabControl" hidden>
+<section class="gmpanel" id="gmPanel" hidden>
       <div class="section-label">/ GAMEMASTER</div>
       <div class="gmpanel__row">
         <button class="btn btn--accent" id="rollMissing">Roll everyone without restrictions</button>
@@ -181,13 +225,7 @@
         </form>
         <div class="penalty__list" id="penaltyList"></div>
 
-        <div class="section-label" style="margin-top:1.5rem">/ HOW THE RULES WENT</div>
-        <p class="hint">One row per rule the machine could actually count, sent by each player&rsquo;s own proctor. A clean row is an answer, not an absence &mdash; it means the rule was watched and held.</p>
-        <div class="penalty__list" id="summaryList"></div>
 
-        <div class="section-label" style="margin-top:1.5rem">/ PROCTOR NOTES</div>
-        <p class="hint">Sent by players' own machines while they play, with the frame from that moment. Observations, not accusations &mdash; a note here is a place to look. Click a still to open it full size.</p>
-        <div class="penalty__list" id="flagList"></div>
       </div>
 
       <div class="gmpanel__pool" id="poolPanel" hidden>
@@ -204,25 +242,24 @@
         <p class="hint">Anything switched off here leaves the draw for this lobby. Restrictions already dealt this game stay where they are.</p>
       </div>
     </section>
+    </div>
 
-    <section class="roster">
-      <div class="log__head-row">
-        <h2 class="title" id="rosterTitle">Lobby <span class="count" id="rosterCount"></span></h2>
-        <div class="log__tools">
-          <button class="btn" id="copyBoard">Copy for Discord</button>
-        </div>
-      </div>
-      <div class="roster__grid" id="rosterGrid"></div>
-      <div class="rosterlist" id="rosterList"></div>
-    </section>
-
-    <section class="standings">
+    <div class="tabpane" id="tabStandings" hidden>
+<section class="standings">
       <div class="log__head-row">
         <h2 class="title" id="standingsToggle">Standings</h2>
         <span class="hint" id="standingsNote">1st = 8 points &middot; 8th = 1 point</span>
       </div>
       <div class="standings__table" id="standingsTable"></div>
     </section>
+    </div>
+
+
+    
+
+    
+
+    
 
     <footer class="footer">
       <div class="foot">

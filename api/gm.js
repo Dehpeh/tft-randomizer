@@ -101,6 +101,7 @@ module.exports = async function handler(req, res) {
           if (value === '' || value === null || value === undefined) continue; // not entered yet
           const place = Number(value);
           if (!s.players[playerId]) { error = 'Placement for someone who is not in this lobby.'; return null; }
+          if (lib.isReferee(s.players[playerId])) { error = 'Referees are not placed — they hold no seat.'; return null; }
           if (!Number.isInteger(place) || place < 1 || place > MAX_SEATS) { error = 'Placements must be 1-' + MAX_SEATS + '.'; return null; }
           if (used.has(place)) { error = 'Two players cannot both be ' + place + '.'; return null; }
           used.add(place);

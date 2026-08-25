@@ -34,10 +34,12 @@ module.exports = async function handler(req, res) {
     const enabled = rules.enabledSet(s.pool.off);
     const rolls = s.rolls[game] || (s.rolls[game] = {});
 
-    let ids = Object.keys(s.players);
+    /* Referees hold no seat, so there is nothing to roll for them. */
+    let ids = lib.playingIds(s);
     if (target === 'missing') ids = ids.filter((id) => !rolls[id]);
     else if (target !== 'all') {
       if (!s.players[target]) { error = 'No such player in this lobby.'; return null; }
+      if (lib.isReferee(s.players[target])) { error = 'Referees are not rolled — they hold no seat.'; return null; }
       ids = [target];
     }
 

@@ -1791,3 +1791,74 @@ button, input, select { font-weight: 300; }
 }
 .tallyrow--breach .tallyrow__mark { color: var(--red); opacity: 1; }
 .tallyrow--breach .tallyrow__text { color: var(--bright); }
+
+/* ============ SECTION TABS ============ */
+.boardtabs {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--line);
+  margin: 1.5rem 0 1.25rem;
+}
+.boardtabs button[data-tab] {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: -0.02em;
+  padding: 0.5rem 0.9rem;
+}
+.boardtabs button[data-tab]:hover { color: var(--bright); }
+.boardtabs button[data-tab][aria-current="page"] {
+  color: var(--bright);
+  border-bottom-color: var(--bright);
+}
+.boardtabs__gap { flex: 1; }
+
+/* ============ ROLE VIEW ============
+   Discord's pattern: a band that stays until you leave, because the danger is
+   forgetting you are not looking at your own screen. */
+.asbanner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.6rem 0.8rem;
+  margin-top: 1.25rem;
+}
+.asbanner__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); flex: none;
+}
+.asbanner__text { flex: 1; font-size: 0.85rem; }
+.asbanner__text b { color: var(--bright); font-weight: 400; }
+
+/* ============ REFEREES ============ */
+.refs { margin-top: 2rem; }
+.refs__row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.ref {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  border: 1px solid var(--line); border-radius: 2px;
+  padding: 0.3rem 0.6rem; font-size: 0.85rem;
+  background: var(--panel);
+}
+
+/* ============ ONE FACE PER SENTENCE ============
+   Archivo and IBM Plex Mono clash when mono is set bare inside a sans sentence:
+   two typefaces arguing rather than one emphasis. Mono earns its place as a
+   standalone token — the lobby code, a timestamp, a section label, a chip like
+   .detail that is visibly its own object — and never as a word inside a phrase.
+
+   A counted row is a phrase, so its numbers stay in Archivo and lean on weight,
+   colour and tabular figures for the emphasis the face used to provide. */
+.tallyrow__text { font-variant-numeric: tabular-nums; }
+.tallyrow__text b {
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--bright);
+  letter-spacing: -0.02em;
+}

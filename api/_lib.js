@@ -100,13 +100,25 @@ function newSession(code, name) {
    read live, so a gamemaster correcting someone's rank for this tournament does
    not rewrite their account, and a player editing their account later cannot
    change what they were rolled against. */
-const newSeat = (account, isGm) => ({
+/* A referee holds no seat. They are in the lobby, they see the match, and they
+   are never rolled, never placed and never counted against the eight — which is
+   the whole point: the gamemaster is usually playing too, and somebody who is
+   not busy playing is the one who can actually watch. */
+const ROLES = new Set(['player', 'referee']);
+const newSeat = (account, isGm, role) => ({
   id: account.id,
   display: account.display,
   rank: account.rank,
   isGm: Boolean(isGm),
+  role: ROLES.has(role) ? role : 'player',
   joinedAt: Date.now(),
 });
+
+/* Seats that actually play. Everything that rolls, places or scores runs off
+   this rather than off Object.keys(players). A seat saved before referees
+   existed has no role and is a player. */
+const isReferee = (seat) => Boolean(seat) && seat.role === 'referee';
+const playingIds = (session) => Object.keys(session.players).filter((id) => !isReferee(session.players[id]));
 
 /* Proctor output belongs to the gamemaster. A player gets their own rows back —
    they are the only thing here that is about them — and nobody else's.
@@ -130,7 +142,8 @@ function scopedSummaries(session, viewerId) {
 function publicSession(session, viewerId) {
   const players = Object.values(session.players)
     .sort((a, b) => (b.isGm ? 1 : 0) - (a.isGm ? 1 : 0) || a.joinedAt - b.joinedAt)
-    .map((p) => ({ id: p.id, display: p.display, rank: p.rank, isGm: p.isGm, joinedAt: p.joinedAt }));
+    .map((p) => ({ id: p.id, display: p.display, rank: p.rank, isGm: p.isGm,
+      role: p.role || 'player', joinedAt: p.joinedAt }));
 
   return {
     code: session.code,
@@ -199,5 +212,6 @@ module.exports = {
   sKey, uKey, send, fail, body, guard, cleanCode,
   newAccount, publicAccount, requireAccount,
   newSession, newSeat, publicSession, requireMember, requireGm, requireLive, rememberSession,
+  isReferee, playingIds, MAX_SEATS: 8,
   validRank, rules, store, auth,
 };
