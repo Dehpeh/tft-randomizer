@@ -407,9 +407,29 @@ switch; "human" means no detector, by decision.
 | No line from a guide | not on screen at all | human |
 | Hands, layers, drinking | would need a webcam | out of scope by design |
 
-**Built Different is off** because it works on the frames it was built from and
-reads 95 "nothing active" frames in the second game against 3 in the first,
-which is not explained. Until it is, it stays off.
+**Built Different is off, and now for a known reason rather than an unexplained
+number.** The figure quoted here before — 95 bad frames in one game against 3 in
+the other — was measured with a rule that has since been replaced twice, and
+carrying it forward was sloppy. Measured properly across both games with the
+current rule: game one reads zero active on 10 of 210 samples, only one of them
+after the fifth minute. Game two reads zero on 27 of 183, and three of those
+were looked at directly:
+
+| When | Verdict |
+| --- | --- |
+| 5:48 | Correct. Every trait a fraction, none at its breakpoint. |
+| 22:36 | Correct. The panel is not drawn at all. |
+| 32:36 | **Wrong.** Elderwood at 5 and Rapidfire at 3, both active, read as zero. |
+
+The two it missed are at silver tier, and silver is desaturated. That is the
+same blind spot that killed the first attempt — fixing the hue assumption did
+not fix the tier assumption underneath it. A rule built on colour keeps failing
+on the tiers that have least of it.
+
+The likely fix is to compare each hexagon against the dimmest one in its own
+column instead of an absolute threshold, since a panel nearly always carries
+inactive traits at the bottom and would then supply its own reference. That is
+a fourth attempt and it is not going in unscored.
 
 **The 3-star detector was removed rather than left switched off.** The idea was
 that three star pips are three small bright-gold blobs, level and evenly

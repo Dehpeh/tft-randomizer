@@ -810,8 +810,57 @@
   /* Scripted access to the same functions the buttons call, so a run can be
      driven from a console or a test harness rather than by hand. It adds no
      capability the page does not already have. */
+  /* A frame grabber that refuses to hand back a stale one.
+
+     A hidden browser pane freezes the video texture: drawImage keeps returning
+     the frame it last decoded while readyState still reads 4 and currentTime
+     still moves, so a measurement comes back full of numbers that are all
+     identical and look like a result. It has cost four separate measurements in
+     this project — a template evaluation where every frame scored the same, a
+     shop trace where every row read "not visible", a trait count where 220
+     samples all returned 2, and one more before that.
+
+     Every one was a measurement written in a hurry without a check. So the
+     check lives here now: grab() compares each frame against the last and
+     throws once enough of them repeat, which turns a silently wrong answer into
+     an obvious failure. Reload the page and it works again.
+
+     Full resolution on purpose. The 320-wide analysis frame is right for the
+     matchers and useless for anything reading digits. */
+  let lastGrabSig = null;
+  let repeatRun = 0;
+
+  async function grab(t, opts) {
+    const cfg = opts || {};
+    await seek(t);
+    if (cfg.settle !== 0) await new Promise((r) => setTimeout(r, cfg.settle || 180));
+
+    const w = cfg.width || video.videoWidth;
+    const h = Math.round(w * (video.videoHeight / video.videoWidth));
+    const c = grab.canvas || (grab.canvas = document.createElement('canvas'));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, w, h);
+    const frame = ctx.getImageData(0, 0, w, h);
+
+    let sig = 0;
+    for (let i = 0; i < frame.data.length; i += 997) sig += frame.data[i];
+    if (sig === lastGrabSig) {
+      repeatRun += 1;
+      if (repeatRun >= 6) {
+        throw new Error('The video is handing back the same frame every time (' + repeatRun
+          + ' in a row at ' + t.toFixed(1) + 's). Reload the page and run it again.');
+      }
+    } else {
+      repeatRun = 0;
+    }
+    lastGrabSig = sig;
+    return frame;
+  }
+
   window.TFTLAB = {
     state: state,
+    grab: grab,
     async loadUrl(src) {
       video.src = src;
       await new Promise((resolve, reject) => {
