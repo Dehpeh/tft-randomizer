@@ -262,8 +262,8 @@
     const asGm = canControl();
     $('copyLink').hidden = !asGm;
     $('proctorLink').href = `/proctor?code=${s.code}&game=${view.game}`;
-    $('rosterGrid').hidden = !asGm;
-    $('rosterList').hidden = asGm;
+    /* One floor for everybody now. What a tile shows is decided per tile by
+       the seat looking at it, so there is no second container to keep in step. */
     $('rosterTitle').innerHTML = asGm
       ? `Lobby <span class="count" id="rosterCount">(${playing(s.players).length})</span>`
       : 'Everyone else';
@@ -433,69 +433,7 @@
 
   /* One line per player: name, then everything they are carrying, rolled
      details included. Same information as the cards, a third of the height. */
-  function renderRosterList() {
-    const s = view.session;
-    const rolls = s.rolls[view.game] || {};
-    const places = placementsFor(view.game);
 
-    const others = playing(s.players).filter((p) => p.id !== s.you);
-    if (!others.length) {
-      $('rosterList').innerHTML = '<div class="log__empty">Nobody else has taken a seat yet.</div>';
-      return;
-    }
-
-    $('rosterList').innerHTML = others.map((p) => {
-      const roll = rolls[p.id];
-      const place = places[p.id];
-      const picks = roll && roll.picks.length
-        ? roll.picks.map((k) => `<span class="rosterlist__pick">
-            <b class="rosterlist__tier rosterlist__tier--${k.tier}">${k.tier === 'major' ? 'maj' : 'min'}</b>${esc(k.text)}${detailChip(k)}</span>`).join('')
-        : roll
-          ? '<span class="rosterlist__clean">plays clean</span>'
-          : '<span class="rosterlist__waiting">not rolled yet</span>';
-
-      return `<div class="rosterlist__row">
-        <span class="rosterlist__name">${esc(p.display)}${p.isGm ? ' <span class="tag tag--gm">GM</span>' : ''}
-          ${place ? `<span class="place place--${place <= 4 ? 'top' : 'bot'}">${ordinal(place)}</span>` : ''}</span>
-        <span class="rosterlist__picks">${picks}</span>
-      </div>`;
-    }).join('');
-  }
-
-  function renderRoster() {
-    const s = view.session;
-    if (!s.isGm) { renderRosterList(); return; }
-    const rolls = s.rolls[view.game] || {};
-    const places = placementsFor(view.game);
-
-    /* Referees have their own strip below. A referee in the card wall is a card
-       that says "no restrictions yet" for ever. */
-    $('rosterGrid').innerHTML = playing(s.players).map((p) => {
-      const roll = rolls[p.id];
-      const place = places[p.id];
-      return `<article class="pcard${p.id === s.you ? ' pcard--me' : ''}">
-        <header class="pcard__head">
-          <span class="pcard__name">${esc(p.display)}</span>
-          <span class="pcard__tags">
-            ${place ? `<span class="place place--${place <= 4 ? 'top' : 'bot'}">${ordinal(place)}</span>` : ''}
-            ${p.isGm ? '<span class="tag tag--gm">GM</span>' : ''}
-            <span class="tag">${esc(rankName(p.rank))}</span>
-          </span>
-        </header>
-        ${roll && roll.picks.length ? `<ul class="pcard__list">${roll.picks.map((pick, i) => `
-          <li class="pcard__pick pcard__pick--${pick.tier}">
-            <b>${pick.tier}</b>
-            <span>${esc(pick.text)}${detailChip(pick)}</span>
-            ${s.isGm ? `<button class="slot__reroll" type="button" data-op="rerollSlot" data-player="${esc(p.id)}" data-index="${i}">Reroll</button>` : ''}
-          </li>`).join('')}</ul>
-          <div class="pcard__seed">SEED ${esc(roll.seed)}</div>`
-        : roll ? '<div class="pcard__waiting pcard__waiting--clean">Plays clean — no restrictions</div>'
-        : '<div class="pcard__waiting">No restrictions yet</div>'}
-        ${penaltiesFor(p.id)}
-        ${s.isGm ? gmRow(p) : ''}
-      </article>`;
-    }).join('');
-  }
 
   /* Everyone can see what has been called against everyone else: an umpire
      decision that only the person penalised knows about is a rumour. */
@@ -506,9 +444,100 @@
       <div class="penalty"><span>G${p.game} — ${esc(p.reason)}</span></div>`).join('')}</div>`;
   }
 
+  /* ============ THE FLOOR ============
+     Eight tiles of the same shape, so a seat out of place reads before any of
+     it is read. One renderer for everybody: what a tile carries is decided by
+     the seat looking at it, which is what makes View as tell the truth.
+
+     A tile holds what the old card wall held — the roll, the seed, penalties
+     and the gamemaster's controls — plus the two things that used to live in a
+     panel somewhere else: how the counted rules went, and whether this seat
+     needs a person. */
+
+  /* Derived from what actually arrived, not stored anywhere: a breach in the
+     counts outranks anything, then notes waiting to be judged, then a proctor
+     that is running and has found nothing, which is its own answer. */
+  function seatState(playerId) {
+    const s = view.session;
+    const rows = (((s.summaries || {})[view.game] || {})[playerId] || {}).rows || [];
+    const notes = (s.flags || []).filter((f) => f.game === view.game && f.playerId === playerId
+      && f.kind !== 'started' && f.kind !== 'stopped');
+    if (!rows.length && !notes.length) return null;
+    const judge = notes.length + (notes.length === 1 ? ' to judge' : ' to judge');
+    if (rows.some((r) => r.breach)) return { s: 'breach', word: 'Breach', meta: notes.length ? judge : 'in the counts' };
+    if (notes.length) return { s: 'review', word: 'Needs a look', meta: judge };
+    return { s: 'clean', word: 'Clean', meta: 'watching' };
+  }
+
+  const GLYPH = { breach: '!', review: '?', clean: '·' };
+
+  function seatCounts(playerId) {
+    const rows = (((view.session.summaries || {})[view.game] || {})[playerId] || {}).rows || [];
+    if (!rows.length) return '';
+    return `<div class="seat__counts">${rows.map((r) => `
+      <span class="seat__count" data-s="${r.breach ? 'breach' : 'clean'}">
+        <span class="seat__glyph">${r.breach ? '!' : '&middot;'}</span>
+        <span>${esc(r.text)}</span>
+      </span>`).join('')}</div>`;
+  }
+
+  function seatTile(p) {
+    const s = view.session;
+    const rolls = s.rolls[view.game] || {};
+    const roll = rolls[p.id];
+    const place = placementsFor(view.game)[p.id];
+    const gm = canControl();
+    const watch = canWatch();
+    const st = watch ? seatState(p.id) : null;
+
+    const rules = roll && roll.picks.length
+      ? `<ul class="seat__rules">${roll.picks.map((pick, i) => `
+          <li class="seat__rule seat__rule--${pick.tier}">
+            <b class="seat__tier">${pick.tier === 'major' ? 'maj' : 'min'}</b>
+            <span class="seat__text">${esc(pick.text)}${detailChip(pick)}</span>
+            ${gm ? `<button class="slot__reroll" type="button" data-op="rerollSlot" data-player="${esc(p.id)}" data-index="${i}">Reroll</button>` : ''}
+          </li>`).join('')}</ul>`
+      : roll
+        ? '<div class="seat__none seat__none--clean">Plays clean &mdash; no restrictions</div>'
+        : '<div class="seat__none">No restrictions yet</div>';
+
+    return `<article class="seat${p.id === s.you ? ' seat--me' : ''}"${st ? ` data-state="${st.s}"` : ''}>
+      <header class="seat__head">
+        <span class="seat__name">${esc(p.display)}</span>
+        <span class="seat__tags">
+          ${place ? `<span class="place place--${place <= 4 ? 'top' : 'bot'}">${ordinal(place)}</span>` : ''}
+          ${p.isGm ? '<span class="tag tag--gm">GM</span>' : ''}
+          <span class="tag">${esc(rankName(p.rank))}</span>
+        </span>
+      </header>
+      ${st ? `<div class="seat__state" data-s="${st.s}">
+        <span class="seat__glyph">${GLYPH[st.s]}</span><span>${st.word}</span>
+        <span class="seat__meta">${st.meta}</span>
+      </div>` : ''}
+      ${rules}
+      ${watch ? seatCounts(p.id) : ''}
+      ${penaltiesFor(p.id)}
+      ${roll && roll.picks.length && gm ? `<div class="seat__seed">SEED ${esc(roll.seed)}</div>` : ''}
+      ${gm ? gmRow(p) : ''}
+    </article>`;
+  }
+
+  function renderRoster() {
+    const s = view.session;
+    /* The gamemaster's floor is the whole table, because they act on it. A
+       player already has their own plate above, so theirs is everyone else. */
+    const seats = canControl()
+      ? playing(s.players)
+      : playing(s.players).filter((p) => p.id !== s.you);
+
+    $('rosterGrid').innerHTML = seats.length
+      ? seats.map(seatTile).join('')
+      : '<div class="log__empty">Nobody else has taken a seat yet.</div>';
+  }
+
   function gmRow(p) {
-    return `<div class="pcard__gm">
-      <select class="pcard__rank" data-op="setRank" data-player="${esc(p.id)}">
+    return `<div class="seat__gm">
+      <select class="seat__rankpick" data-op="setRank" data-player="${esc(p.id)}">
         ${T.RANKS.map((r) => `<option value="${r.id}"${r.id === p.rank ? ' selected' : ''}>${r.name}</option>`).join('')}
       </select>
       <button class="slot__reroll" type="button" data-op="roll-one" data-player="${esc(p.id)}">Roll</button>
