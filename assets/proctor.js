@@ -354,10 +354,17 @@
     /* The shop watcher is off unless this browser has turned it on in the lab,
        which is the same rule the shape matchers follow. */
     const shopOn = Boolean(window.TFTShop && window.TFTShop.on());
+    const r = state.rules || {};
+
+    /* Only what this player's own restrictions need. A watcher nobody has a
+       rule for can only cost frames and produce notes for a gamemaster to
+       ignore, and the bench and board checks are the expensive ones. */
     state.detector = D.createDetector({
       region: state.region || DEFAULT_REGION,
       watchShop: shopOn,
-      watchTraits: shopOn,
+      watchTraits: Boolean(r.traitBan || r.builtDifferent),
+      watchActivity: Boolean(r.afkRound || r.afkStage),
+      watchBench: Boolean(r.pet),
     });
 
     $('live').hidden = false;
@@ -445,11 +452,19 @@
     wctx.drawImage(video, 0, 0, ANALYSIS_W, h);
     const frame = wctx.getImageData(0, 0, ANALYSIS_W, h);
 
+    /* The round indicator, read off the source rather than off this shrunken
+       frame — see readFromVideo. Fifty pixels, twice a second. */
+    let read = {};
+    if (window.TFTDigits && state.detector) {
+      const st = window.TFTDigits.stageFromVideo(video);
+      read = { stage: st.stage, round: st.round };
+    }
+
     const at = elapsed();
     const prevFrame = state.detector.motionAt();
     state.lastMotion = prevFrame ? D.diff(prevFrame, frame, null) : 0;
 
-    state.detector.push(frame, at).forEach(handle);
+    state.detector.push(frame, at, read).forEach(handle);
 
     paintMeter(state.lastMotion);
     $('liveClock').textContent = clock(at);

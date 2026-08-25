@@ -626,9 +626,15 @@
     const picks = chosenPicks();
     const rules = N.rulesFrom(picks, (p) => p.details || []);
     const book = N.createNotebook({ rules: rules, matchers: M });
+    /* Same wiring the live page uses: only the watchers this set of
+       restrictions needs, so a replay produces the feed that player would
+       actually have got rather than everything the code can do. */
     const det = D.createDetector({
-      detectStill: false, detectAugments: true,
-      watchShop: true, watchTraits: Boolean(rules.traitBan || rules.builtDifferent),
+      detectStill: false, detectAugments: true, watchStage: true,
+      watchShop: true,
+      watchTraits: Boolean(rules.traitBan || rules.builtDifferent),
+      watchActivity: Boolean(rules.afkRound || rules.afkStage),
+      watchBench: Boolean(rules.pet),
     });
 
     const notes = [];
@@ -671,7 +677,11 @@
       } else { stuck = 0; }
       lastSig = sig;
 
-      det.push(f, t).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
+      /* The round indicator comes off the video at its own size, not off
+         this 320-wide analysis frame — no digit survives that. Same split the
+         live page uses. */
+      const st = window.TFTDigits ? window.TFTDigits.stageFromVideo(video) : {};
+      det.push(f, t, { stage: st.stage, round: st.round }).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
       reached = t;
 
       if (notes.length && notes.length % 4 === 0) paintSim(notes, from, reached, to, true);
