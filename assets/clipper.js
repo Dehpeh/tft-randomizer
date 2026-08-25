@@ -20,7 +20,13 @@
    practical rather than picking which findings deserve video.
 
    Nothing is uploaded continuously. The buffer lives in this tab and is thrown
-   away as it ages; only the seconds around a finding are ever sent. */
+   away as it ages; only the seconds around a finding are ever sent.
+
+   One note on size: the recorder is given a clone of the video track capped at
+   960 wide, but a track that does not honour that constraint records at source
+   resolution instead. Measured against a real 1080p feed that produced 448 to
+   462KB for eight seconds, against an endpoint that allows 1.4MB, so the cap is
+   a nicety rather than the thing keeping clips sendable — the bitrate is. */
 
 (function (root) {
   'use strict';

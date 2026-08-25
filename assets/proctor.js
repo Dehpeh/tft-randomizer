@@ -1,46 +1,48 @@
 /* The proctor: the player's own browser watching their own game window.
 
-   Design constraints that decided everything below:
+   Constraints that decided everything below:
 
      - It must not touch the game. This reads frames from getDisplayMedia, the
        same API a video call uses. No memory, no input, no overlay, no file
        anywhere near the client. If OBS is safe, so is this.
-     - The video must not leave the machine. Frames go to a canvas, get measured,
-       and are discarded. The video stream is never uploaded. What is sent is a
-       short note and one still of the flagged moment.
+     - The video is never uploaded. Frames go to a canvas, get measured, and are
+       discarded. What leaves the machine is a short note and a few seconds of
+       clip around the moment it describes.
      - Findings are not the player's to hold. They go as they are made, with no
-       send step and nothing to delete, because a finding somebody can decide
+       send step and nothing to delete, because a finding somebody can choose
        whether to forward is a submission rather than evidence, and the one it
-       would occur to them to keep back is the one worth having. The control
-       that stays with the player is whether the proctor is running at all —
-       and the disclosure sits on the start screen, before the share, which is
-       the last point where the answer is genuinely theirs.
-     - It flags, it does not judge, and this is the important one. Every detector
-       here reports that something HAPPENED, not that a rule was broken. It sees
-       an augment screen open and close; it does not know whether the augment
-       taken was the one that was rolled. It sees a card leave the shop; it does
-       not know what stage it was. The two exceptions are structural rather than
-       clever: a locked slot either survived the reroll or it did not, and a
-       1-cost either was still sitting there when the shop changed or it was
-       not. Everything else is "look at 04:12", and the judgement is a
-       gamemaster's.
+       would occur to them to keep back is the one worth having. What stays
+       theirs is whether the proctor runs at all, and the disclosure sits on the
+       start screen, before the share, which is the last point where the answer
+       is genuinely theirs.
+     - It flags, it does not judge. Every detector reports that something
+       HAPPENED, not that a rule was broken. The exceptions are the two where
+       the rule IS the observable event: a locked slot either survived the
+       reroll or it did not, and a 1-cost either was still in the shop when it
+       changed or it was not. Everything else is "look at 12:14", with the clip
+       attached, and the judgement is a gamemaster's.
 
-   What it can actually tell you, honestly:
+   How it is put together:
 
-     - Stillness. Frame differencing is exact: if nothing on screen changed for
-       forty seconds, they were not playing. That covers the AFK restrictions
-       and needs no calibration at all.
-     - Augment screens. The overlay is a big, sudden, sustained change in the
-       middle of the screen, and it always lands in the same place, so the band
-       is a preset rather than something a player is asked to describe. Splitting
-       it into thirds locates the click: when a card is taken it animates and the
-       other two do not. That is an inference, so it is reported as "most
-       movement on the left" beside what the roll said, with a screenshot — a
-       two-second check for a human, not a verdict.
+     - lib/detect.js turns frames into events. It is replayable, and /lab scores
+       it against recordings.
+     - lib/notes.js turns events into what a gamemaster reads — which stage it
+       was, whether this player's restrictions care, whether this is the third
+       time of saying the same thing. It lives outside this file because when it
+       lived inside, the only way to find out what a game would produce was to
+       play one; that is how ten augment notes for one screen reached a real
+       lobby with every one labelled 4-2.
+     - assets/clipper.js keeps a rolling recording so a finding carries the
+       seconds around it. The lead-up has already happened by the time anything
+       is detected, which is why it records continuously rather than starting
+       when something is spotted.
 
-   Gold, shop slots and star levels are the next ones worth doing. They all need
-   digit and sprite templates calibrated against real footage at several UI
-   scales, which is the actual work in this project, not the plumbing here. */
+   Two things here are worth knowing because they were learned the hard way.
+   Numbers — the round indicator, gold — are read off the video at its own
+   resolution rather than from the 320-wide analysis frame, because a digit does
+   not survive that. And the sampling clock lives in a Web Worker, because a
+   background tab throttles setInterval and this tab is behind a game for
+   twenty minutes at a time. */
 (function () {
   const T = window.TFT;
   const $ = (id) => document.getElementById(id);
@@ -538,7 +540,10 @@
       seconds: seconds || 0,
       shot: state.pendingShot || null,
       clip: null,
-      waitingForClip: Boolean(state.clipper),
+      /* Start and stop are bookkeeping, not evidence. A game gets eight
+         clips and spending one on "the proctor started" is a clip a
+         gamemaster does not get for something that happened. */
+      waitingForClip: Boolean(state.clipper) && kind !== 'started' && kind !== 'stopped',
       since: Date.now(),
       sent: false,
       tries: 0,
@@ -554,7 +559,7 @@
     /* The buffer already holds the lead-up, so this only waits for the seconds
        after the finding. A few seconds late with the clip beats instant with a
        frame. */
-    if (state.clipper) {
+    if (state.clipper && flag.waitingForClip) {
       state.clipper.clip().then((blob) => {
         if (!blob) { flag.waitingForClip = false; flush(); return; }
         const reader = new FileReader();
@@ -664,7 +669,7 @@
         ${f.shot ? `<img class="finding__shot" src="${f.shot}" alt="Screen at ${clock(f.at)}">` : '<span class="finding__shot finding__shot--none"></span>'}
         <div>
           <div class="finding__head">
-            <span class="tag ${f.kind === 'augment' ? 'tag--live' : 'tag--closed'}">${f.kind === 'augment' ? 'augment' : 'inactive'}</span>
+            <span class="tag ${f.kind === 'augment' ? 'tag--live' : 'tag--closed'}">${esc(f.kind === 'note' ? 'finding' : f.kind)}</span>
             <span class="finding__at">${clock(f.at)}</span>
             <span class="finding__sent">${f.sent ? 'sent' : f.tries >= 6 ? 'could not send' : f.waitingForClip ? 'recording…' : 'sending…'}</span>
           </div>
