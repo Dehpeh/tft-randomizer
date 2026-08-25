@@ -699,6 +699,7 @@
         stage: st.stage,
         round: st.round,
         crop: (region) => window.TFTDigits && window.TFTDigits.cropFromVideo(video, region),
+        gold: window.TFTDigits ? window.TFTDigits.goldFromVideo(video).value : null,
       }).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
       reached = t;
 

@@ -465,6 +465,8 @@
         round: st.round,
         /* For matchers that read digits — see `native` in lib/detect.js. */
         crop: (region) => window.TFTDigits.cropFromVideo(video, region),
+        /* For the econ rule, which is about what gold was when a round ended. */
+        gold: window.TFTDigits.goldFromVideo(video).value,
       };
     }
 
