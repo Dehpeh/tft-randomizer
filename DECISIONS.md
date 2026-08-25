@@ -407,36 +407,32 @@ switch; "human" means no detector, by decision.
 | No line from a guide | not on screen at all | human |
 | Hands, layers, drinking | would need a webcam | out of scope by design |
 
-**Built Different is off, and now for a known reason rather than an unexplained
-number.** The figure quoted here before — 95 bad frames in one game against 3 in
-the other — was measured with a rule that has since been replaced twice, and
-carrying it forward was sloppy. Measured properly across both games with the
-current rule: game one reads zero active on 10 of 210 samples, only one of them
-after the fifth minute. Game two reads zero on 27 of 183, and three of those
-were looked at directly:
+**Built Different: five wrong diagnoses, then the actual fault.** The rule kept
+failing and each failure produced a new theory about colour — silver is
+desaturated, the panel is translucent, the board moves behind it. Every one of
+those was a story about the symptom. The fault was that the row pitch had been
+measured off a screenshot by eye as 0.0486 when it is 0.0503, so over nine rows
+the sample boxes drifted half a row and the lower ones were reading the gaps
+BETWEEN hexagons. Five rules were tuned against pixels that were not the thing
+being judged.
 
-| When | Verdict |
-| --- | --- |
-| 5:48 | Correct. Every trait a fraction, none at its breakpoint. |
-| 22:36 | Correct. The panel is not drawn at all. |
-| 32:36 | **Wrong.** Elderwood at 5 and Rapidfire at 3, both active, read as zero. |
+With the pitch measured off the rendered panel, brightness and saturation
+separate with room to spare, silver included:
 
-The two it missed are at silver tier, and silver is desaturated. That is the
-same blind spot that killed the first attempt — fixing the hue assumption did
-not fix the tier assumption underneath it. A rule built on colour keeps failing
-on the tiers that have least of it.
+| Frame | Active | Inactive |
+| --- | --- | --- |
+| Game 1, seven active | 71-120 lum, 0.27-0.82 sat | 37 and 39 lum, 0.04 and 0.06 sat |
+| Game 1, nine active over a bright sky | 62-109 lum, 0.26-0.83 sat | — |
+| Game 2, two active at silver tier | 56 and 57 lum, 0.19 and 0.20 sat | 26-29 lum, 0.01-0.05 sat |
 
-A fourth attempt was written and scored on those same frames — judge each
-hexagon against the dimmest in its own column — and it is worse, answering 3
-everywhere including where the truth is 0, because the panel has a vertical
-gradient of its own. Recorded so nobody repeats it.
+The synthetic test was drawing its hexagons at an offset the old sampler used,
+so it had been checking the generator rather than the rule — which is why five
+broken versions all passed it.
 
-What is left to try is reading the fraction rather than the colour. An inactive
-trait prints a fraction like 1 of 2, an active one prints its breakpoint list,
-and the digit machinery already built for the round indicator can tell those
-apart without caring about tier or saturation at all — which is the assumption
-all four colour attempts have died on. That is the approach with a reason to
-work. It has not been built.
+**It is still off.** Across game 1 the fixed rule reads nothing-active on 13 of
+175 samples, five of them after the fifth minute including a three-sample run,
+and those have not been explained. After five wrong calls on this one detector,
+labelled frames agreeing is not enough to switch it on.
 
 **The 3-star detector was removed rather than left switched off.** The idea was
 that three star pips are three small bright-gold blobs, level and evenly
