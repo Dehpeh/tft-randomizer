@@ -64,6 +64,7 @@
 
     let rec = null;
     let chunks = [];
+    let header = null;      // the very first chunk, kept forever — see below
     let stopped = false;
 
     function start() {
@@ -74,6 +75,19 @@
       }
       rec.ondataavailable = (e) => {
         if (!e.data || !e.data.size) return;
+
+        /* The first chunk is not like the others. MediaRecorder puts the EBML
+           header and the initialisation segment in it, and everything after is
+           media clusters that mean nothing on their own. Keep it forever and
+           put it in front of every clip.
+
+           Without this the rolling buffer eventually evicts it and every clip
+           taken after that is a pile of clusters with no header. They store
+           fine, they serve fine, they are the right size and the right content
+           type, and no player will touch them — a real run produced one clip
+           that played and three that failed with SRC_NOT_SUPPORTED. */
+        if (!header) { header = e.data; return; }
+
         chunks.push({ at: Date.now(), blob: e.data });
         const cutoff = Date.now() - keep * 1000;
         while (chunks.length > 2 && chunks[0].at < cutoff) chunks.shift();
@@ -96,7 +110,7 @@
           rec.removeEventListener('dataavailable', grab);
           const parts = lead.map((c) => c.blob).concat(seen);
           if (!parts.length) { resolve(null); return; }
-          resolve(new Blob(parts, { type: mime }));
+          resolve(new Blob(header ? [header].concat(parts) : parts, { type: mime }));
         }, Math.round(cfg.after * 1000));
       });
     }
@@ -105,6 +119,7 @@
       stopped = true;
       try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) { /* already gone */ }
       chunks = [];
+      header = null;
     }
 
     return {
@@ -113,6 +128,7 @@
       stop: stop,
       mime: mime,
       buffered: () => chunks.length,
+      hasHeader: () => Boolean(header),
       seconds: () => (chunks.length ? Math.round((Date.now() - chunks[0].at) / 1000) : 0),
     };
   }

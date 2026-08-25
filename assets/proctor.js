@@ -319,8 +319,9 @@
     state.stream.getVideoTracks()[0].addEventListener('ended', stop);
 
     state.startedAt = Date.now();
-    Object.keys(matchSeen).forEach((k) => delete matchSeen[k]);
-    Object.keys(shopSeen).forEach((k) => delete shopSeen[k]);
+    /* A fresh notebook per share, so gaps and caps start over for the new game
+       rather than carrying a previous one's counts. */
+    notebook = null;
     /* A rolling recorder, so every finding can carry the seconds around it
        rather than one frame of it. Started here and never stopped until the
        share ends, because the lead-up to a finding has already happened by the
@@ -469,29 +470,6 @@
     paintMeter(state.lastMotion);
     $('liveClock').textContent = clock(at);
     paintTiles();
-  }
-
-  /* Left to itself a matcher reports every edge, and some of these things happen
-     over and over in a normal game — gold touches zero most rounds. A note for
-     each would bury the one that matters and burn the twelve screenshots a game
-     is allowed. So each matcher declares which edge is worth a note, how long to
-     wait before repeating itself, and how many it gets in total. */
-  const matchSeen = {};
-
-  function noteMatch(e, edge, fallback) {
-    const m = (window.TFTMatchers && window.TFTMatchers.byId(e.matcher)) || {};
-    if ((m.flagOn || 'both') !== 'both' && m.flagOn !== edge) return;
-
-    const seen = matchSeen[e.matcher] || (matchSeen[e.matcher] = { n: 0, last: -1e9 });
-    if (m.max && seen.n >= m.max) return;
-    if (m.minGap && e.at - seen.last < m.minGap) return;
-    seen.n++;
-    seen.last = e.at;
-
-    const said = (m.says || {})[edge] || fallback;
-    const because = window.TFTMatchers && window.TFTMatchers.why(e.matcher);
-    shoot();
-    addFlag('note', because ? said + ' — ' + because : said, e.at);
   }
 
   /* Notes are written by lib/notes.js, which the lab replays over a recording
