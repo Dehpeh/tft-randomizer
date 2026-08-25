@@ -550,7 +550,21 @@
   }
 
   function addFlag(kind, note, at, seconds) {
-    const flag = { kind, note, at: Math.round(at || 0), seconds: seconds || 0, shot: state.pendingShot || null, sent: false, tries: 0, clip: null, clipSent: false, clipTries: 0 };
+    /* One finding is one row in the gamemaster's list. The clip is the evidence
+       and the still is what goes instead if there is no clip — a recorder the
+       browser would not give us, an encode that failed, or a clip too big for
+       the store. Sending both would put every finding on the feed twice. */
+    const flag = {
+      kind, note,
+      at: Math.round(at || 0),
+      seconds: seconds || 0,
+      shot: state.pendingShot || null,
+      clip: null,
+      waitingForClip: Boolean(state.clipper),
+      since: Date.now(),
+      sent: false,
+      tries: 0,
+    };
     state.pendingShot = null;
     state.flags.push(flag);
     if (state.flags.length > MAX_SHOTS) {
@@ -559,17 +573,17 @@
     }
     renderFlags();
 
-    /* And the clip: the buffer already holds the lead-up, so this only waits
-       for the seconds after. It resolves later than the note, which is on
-       purpose — the note and its still go immediately, and the clip catches up
-       when it is ready. */
+    /* The buffer already holds the lead-up, so this only waits for the seconds
+       after the finding. A few seconds late with the clip beats instant with a
+       frame. */
     if (state.clipper) {
       state.clipper.clip().then((blob) => {
-        if (!blob) return;
+        if (!blob) { flag.waitingForClip = false; flush(); return; }
         const reader = new FileReader();
-        reader.onload = () => { flag.clip = reader.result; flush(); };
+        reader.onload = () => { flag.clip = reader.result; flag.waitingForClip = false; flush(); };
+        reader.onerror = () => { flag.waitingForClip = false; flush(); };
         reader.readAsDataURL(blob);
-      }).catch(() => { /* recorder gone; the still still went */ });
+      }).catch(() => { flag.waitingForClip = false; flush(); });
     }
 
     /* Straight out, without being asked.
@@ -589,34 +603,38 @@
      connection delays a finding rather than losing it. */
   let sending = false;
 
+  /* A clip that never arrives must not hold a note forever. */
+  const CLIP_WAIT_MS = 20000;
+
   async function flush() {
     if (sending || !state.code) return;
-    const queue = state.flags.filter((f) => (!f.sent && f.tries < 6) || (f.clip && !f.clipSent && f.clipTries < 4));
+    const queue = state.flags.filter((f) => {
+      if (f.sent || f.tries >= 6) return false;
+      if (f.waitingForClip && Date.now() - f.since < CLIP_WAIT_MS) return false;
+      return true;
+    });
     if (!queue.length) return;
     sending = true;
     let sent = 0;
 
     try {
       for (const f of queue) {
-        /* The clip goes as its own piece of evidence against the same note, so
-           a clip that is too big or arrives late never costs the note. */
-        if (f.clip && !f.clipSent && f.clipTries < 4) {
-          f.clipTries += 1;
-          try {
+        f.tries += 1;
+        try {
+          /* The clip first, because it is the thing worth having. If the store
+             refuses it — too big, or this game has had its share — fall through
+             to the still rather than losing the finding. */
+          if (f.clip) {
             const res = await fetch('/api/evidence', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ code: state.code, game: state.game, kind: f.kind,
-                note: f.note + ' · clip', at: f.at, clip: f.clip }),
+                note: f.note, at: f.at, clip: f.clip }),
             });
-            if (res.ok) { f.clipSent = true; f.clip = null; }
-            else if (res.status === 413 || res.status === 429) { f.clipSent = true; f.clip = null; }
-          } catch (e) { /* retried by the timer */ }
-        }
+            if (res.ok) { f.sent = true; f.clip = null; sent += 1; continue; }
+            f.clip = null;
+          }
 
-        if (f.sent || f.tries >= 6) continue;
-        f.tries += 1;
-        try {
           if (f.shot) {
             const res = await fetch('/api/evidence', {
               method: 'POST',
@@ -670,7 +688,7 @@
           <div class="finding__head">
             <span class="tag ${f.kind === 'augment' ? 'tag--live' : 'tag--closed'}">${f.kind === 'augment' ? 'augment' : 'inactive'}</span>
             <span class="finding__at">${clock(f.at)}</span>
-            <span class="finding__sent">${f.sent ? 'sent' : f.tries >= 6 ? 'could not send' : 'sending…'}</span>
+            <span class="finding__sent">${f.sent ? 'sent' : f.tries >= 6 ? 'could not send' : f.waitingForClip ? 'recording…' : 'sending…'}</span>
           </div>
           <div class="finding__note">${esc(f.note)}</div>
         </div>

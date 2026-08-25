@@ -377,6 +377,62 @@ died of EMFILE partway through a ten-minute scan. And the resampling above.
 None announced itself; each looked like a result until it was checked. Every
 scan now fingerprints its frames and refuses to report a run that repeated one.
 
+## What each restriction is actually watched by
+
+The honest state of every rule. "Watched" means a detector exists and has
+been scored on real footage; "off" means it exists and has not earned its
+switch; "human" means no detector, by decision.
+
+| Restriction | How | State |
+| --- | --- | --- |
+| 1 augment chosen randomly | "Choose One" text, and the round indicator says which stage | watched |
+| No augment freedom | same | watched |
+| Lock 1 shop space (minor and major) | the locked slot is the one that survives a reroll | watched |
+| 5 costs banned until stage 5 | name-bar colour for the cost, round indicator for the stage | watched |
+| 5 and 4 costs banned | same | watched |
+| Must buy every 1-cost | a 1-cost still in the row when the shop changed | watched |
+| Must buy every 1 or 2-cost | same | watched |
+| Carousel banned for 2 stages | the carousel is the stage-4 round | watched |
+| Carousel banned permanently | same | watched |
+| Roll to 0 gold at 4-2 | the gold counter, read as a lone ring | watched |
+| Roll on an econ threshold | two digits ending in a zero | watched |
+| AFK 1 round every stage | no shop change and nothing moving while the shop is up | watched |
+| AFK a whole stage | same, every round in it | watched |
+| Keep the 1-1 pet on the bench | a bench square held for minutes, then empty | watched |
+| Built Different | colour running down the trait column | off, see below |
+| No 3-star unit | three level gold pips | off, see below |
+| Only Risky wisps | wants a picture of the wisp screen | not built |
+| Ban a trait | needs the trait named, not counted | human |
+| Declare left or right | perspective board, overlapping units | human |
+| No line from a guide | not on screen at all | human |
+| Hands, layers, drinking | would need a webcam | out of scope by design |
+
+**The two that are off.** Built Different works on the frames it was built
+from and reads 95 "nothing active" frames in the second game against 3 in the
+first, which is not explained; until it is, it stays off. The 3-star detector
+fired 59 times in one game, which is nonsense, and has not been rebuilt.
+
+**The three that are human, and why that is not laziness.** A banned trait has
+to be named — counting activations was the workaround and the count drifts at
+the bottom of the panel, so "the count went up" fires on drift. Left-or-right
+positioning is a perspective board with overlapping units. And nothing on
+screen distinguishes a comp somebody worked out from one they read. All three
+are a glance at a clip, which is what the clip button is for.
+
+**Reading the numbers changed the shape of this.** Before it, "5 costs banned
+until stage 5" could only produce "a 5-cost was bought, check the stage" — the
+actual question left to whoever read it. The round indicator is two percent of
+the frame and turns four of these rows from a hint into an answer, including
+the carousel, which needs no template at all once you know a carousel is the
+stage-4 round.
+
+**Every detector is gated on the roll.** A player without a shop restriction
+is never told what their shop did. This is not tidiness: a feed with a note in
+it that means nothing teaches a gamemaster to skim, and then the one that
+mattered gets skimmed too.
+
+---
+
 **Why `/lab` exists.** A detector nobody has scored is a guess. It replays a
 recording through the exact same `lib/detect.js` the live page runs — measuring
 a copy would be worthless — and scores it against what a human says happened.

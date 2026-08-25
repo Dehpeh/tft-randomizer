@@ -296,8 +296,22 @@
     });
   }
 
+  /* A seek that never lands must not hang the run.
+
+     Long recordings do occasionally leave the element with seeking true, an
+     idle network and no 'seeked' ever arriving — a full-game replay stalled at
+     19:50 that way and sat there. Waiting a few seconds and nudging the time
+     costs nothing when the seek was going to land anyway, and rescues the run
+     when it was not. */
   const seek = (t) => new Promise((resolve) => {
-    video.addEventListener('seeked', resolve, { once: true });
+    let done = false;
+    const finish = () => { if (done) return; done = true; clearTimeout(timer); resolve(); };
+    video.addEventListener('seeked', finish, { once: true });
+    const timer = setTimeout(() => {
+      /* Nudge it: a fresh assignment usually shakes a stuck seek loose. */
+      try { video.currentTime = t + 0.001; } catch (e) { /* nothing more to try */ }
+      setTimeout(finish, 1500);
+    }, 4000);
     video.currentTime = t;
   });
 
