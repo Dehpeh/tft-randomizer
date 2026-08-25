@@ -460,7 +460,12 @@
     let read = {};
     if (window.TFTDigits && state.detector) {
       const st = window.TFTDigits.stageFromVideo(video);
-      read = { stage: st.stage, round: st.round };
+      read = {
+        stage: st.stage,
+        round: st.round,
+        /* For matchers that read digits — see `native` in lib/detect.js. */
+        crop: (region) => window.TFTDigits.cropFromVideo(video, region),
+      };
     }
 
     const at = elapsed();

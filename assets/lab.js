@@ -695,7 +695,11 @@
          this 320-wide analysis frame — no digit survives that. Same split the
          live page uses. */
       const st = window.TFTDigits ? window.TFTDigits.stageFromVideo(video) : {};
-      det.push(f, t, { stage: st.stage, round: st.round }).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
+      det.push(f, t, {
+        stage: st.stage,
+        round: st.round,
+        crop: (region) => window.TFTDigits && window.TFTDigits.cropFromVideo(video, region),
+      }).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
       reached = t;
 
       if (notes.length && notes.length % 4 === 0) paintSim(notes, from, reached, to, true);
