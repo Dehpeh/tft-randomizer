@@ -632,7 +632,7 @@
     });
 
     const notes = [];
-    const seenFrames = new Set();
+    let lastSig = null;
     let repeats = 0;
     let stuck = 0;
     let reached = from;
@@ -656,7 +656,11 @@
          reporting results from repeats without noticing, not the repeats. */
       let sig = 0;
       for (let i = 0; i < f.data.length; i += 997) sig += f.data[i];
-      if (seenFrames.has(sig)) {
+      /* Against the previous frame only. Comparing against every frame ever
+         seen turns coarse-hash collisions into "repeats" — a good 36-minute run
+         reported 1,387 of them — and a freeze is by definition the same frame
+         as the one before it. */
+      if (sig === lastSig) {
         repeats++;
         stuck++;
         if (stuck > 120) {
@@ -665,7 +669,7 @@
           break;
         }
       } else { stuck = 0; }
-      seenFrames.add(sig);
+      lastSig = sig;
 
       det.push(f, t).forEach((e) => book.push(e).forEach((n) => notes.push(n)));
       reached = t;
