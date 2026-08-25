@@ -353,9 +353,19 @@
 
   function renderMine() {
     const s = view.session;
-    const me = s.players.find((p) => p.id === s.you);
-    const roll = (s.rolls[view.game] || {})[s.you] || null;
-    const place = placementsFor(view.game)[s.you] || null;
+    const seat = actingSeat();
+    /* Referees are not rolled, so there is no plate to draw. Hiding it is the
+       honest answer; an empty one reads as a roll that has not happened yet. */
+    $('mine').hidden = actingRole() === 'referee';
+    if ($('mine').hidden) return;
+    /* Every part of the plate comes from the same seat. Taking the name from
+       the seat being viewed and the roll from whoever is signed in would show a
+       player someone else's restrictions under their own name, which is worse
+       than not switching at all. */
+    const me = seat || s.players.find((p) => p.id === s.you);
+    const who = me ? me.id : s.you;
+    const roll = (s.rolls[view.game] || {})[who] || null;
+    const place = placementsFor(view.game)[who] || null;
     const fresh = roll && roll.seed !== view.lastSeed;
 
     $('mine').innerHTML = `
@@ -526,9 +536,13 @@
     const s = view.session;
     /* The gamemaster's floor is the whole table, because they act on it. A
        player already has their own plate above, so theirs is everyone else. */
+    /* Whose plate is already above, which is the seat being looked through and
+       not whoever is signed in. A referee holds no seat, so nothing is dropped
+       and they see the whole table. */
+    const mine = (actingSeat() || {}).id || s.you;
     const seats = canControl()
       ? playing(s.players)
-      : playing(s.players).filter((p) => p.id !== s.you);
+      : playing(s.players).filter((p) => p.id !== mine);
 
     $('rosterGrid').innerHTML = seats.length
       ? seats.map(seatTile).join('')
